@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Imaging: ON vs OFF — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Smart Imaging</div>
+    <h1>Same URL, fewer bytes — automatically</h1>
+    <p>Smart Imaging converts each delivery to the best modern format the visitor's browser accepts
+       (AVIF / WebP) at an optimized quality — no URL change, no code. Below, the <b>same</b> request is
+       served with Smart Imaging <b>off</b> (<code style="font-family:var(--mono)">bfc=off</code> → baseline
+       JPEG) and <b>on</b> (default). Both are fetched live by <em>your</em> browser. Drag quality and watch
+       the bytes on both sides move.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+      <div class="card">
+        <h2>Request</h2>
+        <div class="ctrl">
+          <label>Quality (qlt) <span class="val" id="qV">80</span></label>
+          <input type="range" id="q" min="20" max="95" step="5" value="80">
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Delivery width <span class="val" id="wV">900</span></label>
+          <input type="range" id="w" min="400" max="1400" step="100" value="900">
+        </div>
+        <p class="hint" id="saveLine" style="margin-top:16px">Measuring…</p>
+      </div>
+      <div class="card">
+        <h2>The toggle</h2>
+        <p class="hint" style="margin-top:0"><code style="font-family:var(--mono)">bfc=off</code> = "browser
+           format conversion off" — the one switch that disables Smart Imaging per request. In production
+           you never use it; it's here to reveal what Smart Imaging is doing for you on every other URL.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="tile">
+          <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img id="imgOff" alt="smart imaging off" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="cap">
+            <div class="t">Smart Imaging OFF <span class="badge red" id="fmtOff">—</span></div>
+            <div class="s">baseline · <code style="font-family:var(--mono)">bfc=off</code></div>
+            <div class="m-val" id="sizeOff" style="font-size:22px;margin-top:6px">—</div>
+          </div>
+        </div>
+        <div class="tile">
+          <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img id="imgOn" alt="smart imaging on" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="cap">
+            <div class="t">Smart Imaging ON <span class="badge green" id="fmtOn">—</span></div>
+            <div class="s">default · what your browser gets</div>
+            <div class="m-val good" id="sizeOn" style="font-size:22px;margin-top:6px">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row"><span>The single authored URL (Smart Imaging on)</span>
+          <button class="copy-btn" id="copy">Copy URL</button></div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">Quality still applies in both modes — Smart Imaging additionally swaps the
+        <b>format</b> to AVIF/WebP per the browser's <code style="font-family:var(--mono)">Accept</code> header,
+        which is where most of the saving comes from. Every unique URL is rendered once, then edge-cached.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+let asset = DMAssets.current();
+const state = { q:80, w:900 };
+
+function urlFor(off){
+  return DMAssets.imageBase(asset) + `?wid=${state.w}&qlt=${state.q}` + (off?'&bfc=off':'')
+    + `&t=${Math.floor(performance.now())}`;   // cache-bust so each change is a real fetch
+}
+function fmtName(ct){ return ((ct||'').split('/')[1]||'?').replace('jpeg','JPEG').toUpperCase(); }
+
+function urlHtml(){
+  const base = DMAssets.imageBase(asset);
+  return base.replace(/^https:\/\/([^/]+)/, '<span class="host">https://$1</span>').replace(/(\/is\/image\/.*)$/, '<span class="path">$1</span>')
+    + '<span class="q">?</span><span class="k">wid</span>=<span class="v">'+state.w+'</span>'
+    + '<span class="amp">&amp;</span><span class="k">qlt</span>=<span class="v">'+state.q+'</span>';
+}
+
+let token = 0;
+function render(){
+  document.getElementById('url').innerHTML = urlHtml();
+  const my = ++token;
+  const grab = (off, imgId, fmtId, sizeId) => {
+    const u = urlFor(off);
+    return fetch(u, {cache:'no-store'}).then(r => { const ct = r.headers.get('content-type'); return r.blob().then(b => ({ct,b})); })
+      .then(({ct,b}) => {
+        if(my !== token) return null;            // ignore stale responses
+        document.getElementById(imgId).src = URL.createObjectURL(b);
+        document.getElementById(fmtId).textContent = fmtName(ct);
+        document.getElementById(sizeId).textContent = (b.size/1024).toFixed(0) + ' KB';
+        return b.size;
+      });
+  };
+  Promise.all([
+    grab(true,  'imgOff','fmtOff','sizeOff'),
+    grab(false, 'imgOn', 'fmtOn', 'sizeOn')
+  ]).then(([off,on]) => {
+    if(my !== token || !off || !on) return;
+    const save = Math.round((1 - on/off) * 100);
+    document.getElementById('saveLine').innerHTML =
+      `At quality <b>${state.q}</b>, Smart Imaging delivers <b style="color:var(--green)">${save}% fewer bytes</b> `
+      + `— ${(off/1024).toFixed(0)} KB → ${(on/1024).toFixed(0)} KB — on the exact same URL.`;
+  });
+}
+
+DMAssets.mountPicker(document.getElementById('picker'), a => { asset = a; render(); });
+document.getElementById('q').addEventListener('input', e => { state.q=+e.target.value; document.getElementById('qV').textContent=e.target.value; render(); });
+document.getElementById('w').addEventListener('input', e => { state.w=+e.target.value; document.getElementById('wV').textContent=e.target.value; render(); });
+document.getElementById('copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(DMAssets.imageBase(asset)+`?wid=${state.w}&qlt=${state.q}`);
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+render();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

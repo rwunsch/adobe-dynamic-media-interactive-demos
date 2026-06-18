@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preset Gallery — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Presets &amp; Smart Crop</div>
+    <h1>Two kinds of preset, one master file</h1>
+    <p>A preset is a named, centrally-governed recipe applied on the fly to a single master asset.
+       Below: first, <b>brand treatments</b> — colour and contrast looks owned by the brand team;
+       second, the comparison that matters — a <b>naive aspect crop</b> that slices the middle of
+       the frame versus a <b>Smart Crop</b> that understands where the subject is.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 1 — Brand treatments                                  -->
+  <!-- ============================================================ -->
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <h2>Master asset</h2>
+        <div id="picker"></div>
+        <p class="hint" style="margin-top:14px">One uploaded master. Every treatment below is
+           applied to whichever asset you pick — zero pre-baked derivatives.</p>
+      </div>
+
+      <div class="card">
+        <h2>What a treatment is</h2>
+        <p class="hint" style="margin-top:0">Each tile applies a real, named tenant preset — a bundle
+           of colour, contrast and sharpening rules — to the selected asset as
+           <span style="font-family:var(--mono);color:#7fd6ff">?$name$&amp;wid=600</span>. The look
+           lives centrally: re-tune the recipe once and <b>every</b> asset that references the name
+           updates. Marketers just drop the short name; the brand team owns the rules.</p>
+        <div style="margin-top:14px">
+          <span class="badge green">Governed centrally</span>
+          <span class="badge blue" style="margin-left:6px">Zero pre-baked files</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="grid" id="treatGrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+      <p class="hint">Same pixels in, nine governed looks out — all from one file.
+         The <span style="font-family:var(--mono);color:#7fd6ff">&amp;wid=600</span> is just there to
+         keep the demo snappy; a pure preset at native size can hit the reply-size cap.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- SECTION 2 — Naive crop vs Smart Crop                          -->
+  <!-- ============================================================ -->
+  <div class="demo-head" style="margin-top:56px;">
+    <div class="eyebrow">Dynamic Media · Smart Crop</div>
+    <h1>Naive crop vs Smart Crop</h1>
+    <p>An aspect-ratio preset has to throw away pixels to hit the target shape. A <b>naive</b> centre
+       crop slices the middle of the frame — and decapitates the subject. A <b>Smart Crop</b> is
+       content-aware: it finds the subject and keeps it framed at any ratio. Same master, same output
+       size, side by side.</p>
+    <p class="hint" style="margin-top:10px">This section is fixed to the bus portrait — the four named
+       Smart Crops (<span style="font-family:var(--mono);color:#7fd6ff">:11square :169banner :54vert
+       :61banner</span>) are configured only on that asset, so it does not follow the picker above.</p>
+  </div>
+
+  <div class="grid" id="cropGrid" style="grid-template-columns:1fr; gap:28px"></div>
+
+  <p class="hint" style="margin-top:18px">The difference is the whole argument: a plain aspect preset
+     (<span style="font-family:var(--mono);color:#ff7a6e">fit=crop</span>) is blind to content and cuts
+     off heads; Smart Crop keeps the subject in frame across every channel —
+     square avatar, wide banner, tall story, ultra-wide hero — from one upload.</p>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+/* ============================================================
+   SECTION 1 — Brand treatments (shared picker)
+   ============================================================ */
+// Friendly label -> tenant preset name. Original = baseline (no preset).
+const TREATMENTS = [
+  {label:'Original',       name:null},
+  {label:'Black & White',  name:'bw'},
+  {label:'Vivid',          name:'vivid'},
+  {label:'Muted',          name:'muted'},
+  {label:'Warm',           name:'warm'},
+  {label:'Cool',           name:'cool'},
+  {label:'Brand duotone',  name:'duotone'},
+  {label:'Bright & airy',  name:'airy'},
+  {label:'Crisp',          name:'crisp'},
+];
+
+const treatGrid = document.getElementById('treatGrid');
+
+function treatUrl(base, t){
+  // The &wid=600 is required: a pure preset at native size can hit the reply-size cap.
+  return t.name ? base + '?$' + t.name + '$&wid=600' : base + '?wid=600';
+}
+
+function renderTreatments(asset){
+  const base = DMAssets.imageBase(asset);
+  treatGrid.innerHTML = '';
+  TREATMENTS.forEach(t=>{
+    const url = treatUrl(base, t);
+    const tile = document.createElement('div'); tile.className = 'tile';
+    tile.title = t.name ? '?$' + t.name + '$&wid=600' : '?wid=600';
+    tile.innerHTML =
+      `<div style="aspect-ratio:1/1;background:repeating-conic-gradient(#333 0% 25%,#2b2b2b 0% 50%) 50%/20px 20px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+         <img alt="${t.label}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain">
+       </div>
+       <div class="cap">
+         <div class="t">${t.label}</div>
+         <div class="s" data-size>…</div>
+       </div>`;
+    treatGrid.appendChild(tile);
+
+    const img = tile.querySelector('img');
+    const sizeEl = tile.querySelector('[data-size]');
+    fetch(url, {cache:'no-store'}).then(r=>r.blob()).then(b=>{
+      img.src = URL.createObjectURL(b);
+      sizeEl.textContent = (t.name ? '$'+t.name+'$' : 'no preset') + ' · ' + (b.size/1024).toFixed(0) + ' KB';
+    }).catch(()=>{ img.src = url; sizeEl.textContent = t.name ? '$'+t.name+'$' : 'no preset'; });
+  });
+}
+
+// Mount shared picker; re-render the treatment grid on change.
+DMAssets.mountPicker(document.getElementById('picker'), asset => renderTreatments(asset));
+renderTreatments(DMAssets.current());
+
+/* ============================================================
+   SECTION 2 — Naive crop vs Smart Crop (fixed to the bus)
+   The named Smart Crops are configured only on this asset.
+   ============================================================ */
+const BUS = 'https://s7g10.scene7.com/is/image/RobertCo/person-in-black-face-mask-on-a-blue-bus';
+
+// Each row: a target aspect ratio, the output box (w,h), and the named Smart Crop.
+const RATIOS = [
+  {label:'1:1 · square avatar',  ratio:'1:1',  w:500,  h:500, smart:':11square'},
+  {label:'16:9 · wide banner',   ratio:'16:9', w:600,  h:338, smart:':169banner'},
+  {label:'4:5 · tall story',     ratio:'4:5',  w:400,  h:500, smart:':54vert'},
+  {label:'6:1 · ultra-wide hero',ratio:'6:1',  w:1200, h:200, smart:':61banner'},
+];
+
+const cropGrid = document.getElementById('cropGrid');
+
+RATIOS.forEach(r=>{
+  // Naive: plain centre crop to the exact target box.
+  const naiveUrl = BUS + '?wid=' + r.w + '&hei=' + r.h + '&fit=crop';
+  // Smart: named content-aware crop; request by width, the ratio is baked into the crop.
+  const smartUrl = BUS + r.smart + '?wid=' + r.w;
+
+  const row = document.createElement('div');
+  // cap each tile to the same on-screen width so naive + smart compare at one scale
+  const boxW = Math.min(r.w, 520);
+
+  row.innerHTML =
+    `<div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px">
+       ${r.label} <span style="font-family:var(--mono);color:var(--muted-2);font-weight:400;text-transform:none;margin-left:6px">${r.ratio} · ${r.w}×${r.h}</span>
+     </div>
+     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+       <div class="tile" style="flex:0 1 auto;max-width:100%">
+         <div style="position:relative;background:repeating-conic-gradient(#333 0% 25%,#2b2b2b 0% 50%) 50%/20px 20px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+           <span class="badge red" style="position:absolute;top:10px;left:10px;z-index:2">Naive fit=crop</span>
+           <img data-naive alt="Naive centre crop ${r.ratio}" style="display:block;height:240px;width:auto;max-width:100%">
+         </div>
+         <div class="cap"><div class="t">Centre crop</div><div class="s">?wid=${r.w}&amp;hei=${r.h}&amp;fit=crop</div></div>
+       </div>
+       <div class="tile" style="flex:0 1 auto;max-width:100%">
+         <div style="position:relative;background:repeating-conic-gradient(#333 0% 25%,#2b2b2b 0% 50%) 50%/20px 20px;display:flex;align-items:center;justify-content:center;overflow:hidden">
+           <span class="badge green" style="position:absolute;top:10px;left:10px;z-index:2">Smart Crop</span>
+           <img data-smart alt="Smart Crop ${r.ratio}" style="display:block;height:240px;width:auto;max-width:100%">
+         </div>
+         <div class="cap"><div class="t">Content-aware</div><div class="s">${r.smart}?wid=${r.w}</div></div>
+       </div>
+     </div>`;
+  cropGrid.appendChild(row);
+
+  // uniform display height makes every crop the same height (width varies by aspect)
+  row.querySelectorAll('.tile').forEach(t=>{ t.style.width = 'auto'; t.style.maxWidth = '100%'; });
+
+  const naiveImg = row.querySelector('[data-naive]');
+  const smartImg = row.querySelector('[data-smart]');
+  fetch(naiveUrl, {cache:'no-store'}).then(r2=>r2.blob()).then(b=>{ naiveImg.src = URL.createObjectURL(b); }).catch(()=>{ naiveImg.src = naiveUrl; });
+  fetch(smartUrl, {cache:'no-store'}).then(r2=>r2.blob()).then(b=>{ smartImg.src = URL.createObjectURL(b); }).catch(()=>{ smartImg.src = smartUrl; });
+});
+</script>
+</body>
+</html>

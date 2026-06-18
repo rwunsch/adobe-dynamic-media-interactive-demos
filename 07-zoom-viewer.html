@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zoom Viewer — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Progressive Zoom</div>
+    <h1>Zoom to the stitching — tiles render on the fly</h1>
+    <p>The Adobe HTML5 Zoom Viewer lets a shopper inspect a product down to the weave, the
+       label, the grain — without you ever cutting a single tile. Mouse-wheel or pinch to zoom,
+       drag to pan. Each level of detail is generated <b>on demand</b> from the original master
+       and cached at the edge, so deep-zoom costs you nothing to author.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>How to interact</h2>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Wheel / Pinch</span>
+          <span class="hint" style="margin:0 0 0 8px">Zoom in &amp; out</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Drag</span>
+          <span class="hint" style="margin:0 0 0 8px">Pan around at any zoom level</span></div>
+        <div class="ctrl" style="margin-bottom:0"><span class="badge blue">Double-click</span>
+          <span class="hint" style="margin:0 0 0 8px">Step zoom toward the cursor</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Pyramid tiles, on demand</h2>
+        <p class="hint" style="margin-top:0">
+          Dynamic Media stores the master once. When a viewer zooms, the SDK requests just the
+          small <b>tiles</b> for the visible region at the resolution it needs — an image
+          <b>pyramid</b> computed on the fly by the image server. You never run a tiling job,
+          never manage a <code>.zip</code> of derivatives, and never store deep-zoom copies.
+          Add a higher-resolution master and every zoom level instantly gets sharper.</p>
+      </div>
+
+      <div class="card">
+        <h2>Same master, everywhere</h2>
+        <p class="hint" style="margin-top:0">
+          This is the identical asset used by the URL-composition and Smart-Crop demos —
+          <code>RobertCo/person-in-black-face-mask-on-a-blue-bus</code>. One file feeds the
+          thumbnail, the responsive crop, and this deep-zoom experience.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage" style="padding:0; min-height:62vh; background:#1e1e1e;">
+        <iframe id="viewer" title="Adobe Dynamic Media Zoom Viewer"
+                style="width:100%; height:62vh; border:0; border-radius:14px; display:block; background:#1e1e1e;"
+                allow="fullscreen" allowfullscreen></iframe>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live Zoom Viewer URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">The viewer (<code>BasicZoomViewer.html</code>) is hosted by Adobe's Scene7
+         Viewer SDK on the same domain. <code>serverUrl</code> points at the image server that
+         renders each tile; no config preset is required for the basic zoom experience.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const VIEWER = 'https://s7g10.scene7.com/s7viewers/html5/BasicZoomViewer.html';
+const ASSET = 'RobertCo/person-in-black-face-mask-on-a-blue-bus';
+const SERVER = 'https://s7g10.scene7.com/is/image/';
+const CONTENT = 'https://s7g10.scene7.com/is/content/';
+
+const parts = [
+  ['asset', ASSET],
+  ['serverUrl', SERVER],
+  ['contenturl', CONTENT]
+];
+
+function buildUrl(){
+  return VIEWER + '?' + parts.map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+
+function renderUrlHtml(){
+  let html = '<span class="host">https://s7g10.scene7.com</span>'
+           + '<span class="path">/s7viewers/html5/BasicZoomViewer.html</span>';
+  parts.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  });
+  return html;
+}
+
+document.getElementById('viewer').src = buildUrl();
+document.getElementById('url').innerHTML = renderUrlHtml();
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+</script>
+</body>
+</html>

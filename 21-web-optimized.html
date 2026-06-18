@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web-optimized delivery — Dynamic Media OpenAPI</title>
+<link rel="stylesheet" href="css/demo.css">
+<style>
+  /* inline tweaks — highlight the live params that drive the bandwidth story */
+  .url .seo { color:var(--orange); font-weight:700; }
+  .savings { font-size:12.5px; color:var(--muted); margin-top:10px; }
+  .savings b { color:#3fd690; }
+  .ct-line { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:var(--muted); }
+  .ct-line code { font-family:var(--mono); color:#fff; }
+</style>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Web-optimized delivery</div>
+    <h1>One master. <em>Every</em> web rendition, on the fly.</h1>
+    <p>The AEM-native <code style="font-family:var(--mono)">/as/</code> rendition endpoint serves a single
+       <b>governed master asset</b> at any width, quality and format you ask for — generated on demand, cached at the edge.
+       Drag the sliders: the same URL pattern returns a 21 KB thumbnail or a 120 KB hero from <b>one</b> approved source.
+       <b>No Scene7 sync</b>, no pre-baked size variants, and the server negotiates the best format for you.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <div id="picker">
+          <label style="display:block;font-size:13px;font-weight:600;margin-bottom:7px;color:#e8e8e8">
+            Asset <span style="color:#919191;font-weight:400">· one governed master</span></label>
+          <div class="chips" id="assetChips" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Compose the rendition</h2>
+
+        <div class="ctrl">
+          <label>Width <span class="val" id="widthVal">900 px</span></label>
+          <input type="range" id="width" min="200" max="2000" step="50" value="900">
+        </div>
+
+        <div class="ctrl">
+          <label>Quality <span class="val" id="qualityVal">80</span></label>
+          <input type="range" id="quality" min="10" max="100" step="5" value="80">
+        </div>
+
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Format <span class="val" id="formatVal">auto</span></label>
+          <select id="format">
+            <option value="auto">auto — server negotiates</option>
+            <option value="jpg">jpg — JPEG</option>
+            <option value="png">png — PNG (lossless)</option>
+            <option value="webp">webp — request WebP</option>
+          </select>
+        </div>
+        <p class="hint" style="margin-bottom:0">Lower the width or quality and watch the
+          <b>delivered bytes</b> drop — that is the bandwidth win, from a single master.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why this matters</h2>
+        <p class="hint" style="margin-top:0">
+          Classic Dynamic Media required publishing assets to <b>Scene7</b> and pre-defining image presets.
+          The OpenAPI <code style="font-family:var(--mono)">/as/</code> endpoint is <b>AEM-native</b>: the approved
+          master <em>is</em> the source, and any width / quality / format is computed and cached on first request.</p>
+        <p class="hint">One stable asset &rarr; <b>infinite web-optimized renditions</b>. Format negotiation is automatic
+          (ask for <code style="font-family:var(--mono)">.webp</code> or <code style="font-family:var(--mono)">auto</code>
+          and the server returns whatever best serves the requesting browser).</p>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="img" alt="Web-optimized rendition delivered on the fly"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">HTTP status</div><div class="m-val" id="mStatus">—</div></div>
+        <div class="metric"><div class="m-label">Delivered bytes</div><div class="m-val" id="mBytes">—</div></div>
+        <div class="metric"><div class="m-label">Content-Type</div><div class="m-val" id="mType" style="font-size:16px">—</div></div>
+      </div>
+      <div class="savings" id="savings"></div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Web-optimized delivery URL · AEM-native, no Scene7</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+        <div class="ct-line">
+          <span>Requested format:</span> <code id="reqFmt">auto</code>
+          <span>&rarr; server returned:</span> <code id="gotCt">—</code>
+        </div>
+      </div>
+
+      <p class="hint"><b>One governed master, web-optimized on the fly.</b> Every rendition above comes from the same
+        approved asset — the only thing that changes is the query string. The CDN caches each variant after first hit,
+        so production traffic is edge-served. When you ask for <code style="font-family:var(--mono)">.webp</code> or
+        <code style="font-family:var(--mono)">auto</code>, the <b>Content-Type</b> readout shows what the server actually
+        negotiated for the browser — no manual format management, no Scene7 publish step.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Approved + published masters on the RobertCo tenant — each serves any width/quality/format from /as/. */
+const ASSETS = [
+  {name:'forest-trail',        label:'Forest trail',  uuid:'8c18286d-c218-4efc-aa07-35d846406079'},
+  {name:'surfing_2',           label:'Surfer',        uuid:'77ed958c-9433-471d-9b37-f770de400bf2'},
+  {name:'alpinists-himalayas', label:'Alpinists',     uuid:'921a99f7-421f-487b-87ef-0c2e16677ff4'},
+  {name:'ice-climbing',        label:'Ice climbing',  uuid:'868c2a49-c1a3-46e7-b606-a962534ba1fc'},
+];
+
+const HOST = 'https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com';
+
+let asset   = ASSETS[0];
+let width   = 900;
+let quality = 80;
+let format  = 'auto';   // auto | jpg | png | webp
+let baseline = null;    // delivered bytes of the first (default) render, for the savings line
+
+function ext(){ return format === 'auto' ? 'jpg' : format; }
+
+function assetRoot(a){ return `${HOST}/adobe/assets/urn:aaid:aem:${a.uuid}`; }
+
+/* compose the delivery URL — width always; quality always; no extra params for auto */
+function deliveryUrl(a){
+  let u = `${assetRoot(a)}/as/${a.name}.${ext()}?width=${width}&quality=${quality}`;
+  return u;
+}
+
+/* color-coded URL anatomy: host / path / seoname / params */
+function deliveryUrlHtml(a){
+  return '<span class="host">' + HOST + '</span>'
+    + '<span class="path">/adobe/assets/urn:aaid:aem:' + a.uuid + '/as/</span>'
+    + '<span class="seo">' + a.name + '.' + ext() + '</span>'
+    + '<span class="q">?</span><span class="k">width</span>=<span class="v">' + width + '</span>'
+    + '<span class="amp">&amp;</span><span class="k">quality</span>=<span class="v">' + quality + '</span>';
+}
+
+function fmtKb(bytes){ return (bytes / 1024).toFixed(1) + ' KB'; }
+
+let token = 0;   // stale-response guard
+function render(){
+  const a = asset;
+  const url = deliveryUrl(a);
+
+  document.getElementById('url').innerHTML = deliveryUrlHtml(a);
+  document.getElementById('reqFmt').textContent = format;
+
+  const my = ++token;
+  const img = document.getElementById('img');
+
+  // reset readouts while fetching
+  document.getElementById('mStatus').textContent = '…';
+  document.getElementById('mStatus').className = 'm-val';
+  document.getElementById('gotCt').textContent = '…';
+
+  fetch(url, {cache:'no-store'}).then(r => {
+    if(my !== token) return null;                       // stale guard
+    const ct = r.headers.get('content-type') || '';
+    document.getElementById('mStatus').textContent = 'HTTP ' + r.status;
+    document.getElementById('mStatus').className = 'm-val' + (r.ok ? ' good' : ' warn');
+    document.getElementById('mType').textContent = ct.replace('image/', '') || '—';
+    document.getElementById('gotCt').textContent = ct || '—';
+    return r.blob();
+  }).then(b => {
+    if(my !== token || !b) return;                      // stale guard
+    img.src = URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent = fmtKb(b.size);
+
+    // savings line — compare against the very first render of the session
+    if(baseline === null){ baseline = b.size; }
+    const diff = baseline - b.size;
+    const sv = document.getElementById('savings');
+    if(Math.abs(diff) < 512){
+      sv.innerHTML = 'Delivered <b>' + fmtKb(b.size) + '</b> from the governed master — drag the sliders to see the bytes move.';
+    } else if(diff > 0){
+      const pct = ((diff / baseline) * 100).toFixed(0);
+      sv.innerHTML = 'Delivered <b>' + fmtKb(b.size) + '</b> — <b>' + pct + '% smaller</b> than the '
+        + fmtKb(baseline) + ' default. Same master, less bandwidth.';
+    } else {
+      sv.innerHTML = 'Delivered <b>' + fmtKb(b.size) + '</b> — larger than the ' + fmtKb(baseline)
+        + ' default (bigger width / higher quality). Same governed master, on the fly.';
+    }
+  }).catch(() => {
+    if(my !== token) return;
+    document.getElementById('mStatus').textContent = '—';
+    document.getElementById('mBytes').textContent = '—';
+    document.getElementById('mType').textContent = '—';
+    document.getElementById('gotCt').textContent = '—';
+    img.src = url;   // fall back to a plain <img> load
+  });
+}
+
+/* asset chips */
+const chipHost = document.getElementById('assetChips');
+ASSETS.forEach((a, i) => {
+  const c = document.createElement('span');
+  c.className = 'chip' + (i === 0 ? ' active' : '');
+  c.textContent = a.label;
+  c.addEventListener('click', () => {
+    chipHost.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    asset = a;
+    baseline = null;   // re-baseline per asset so the savings line stays meaningful
+    render();
+  });
+  chipHost.appendChild(c);
+});
+
+/* width slider */
+const widthEl = document.getElementById('width');
+widthEl.addEventListener('input', () => {
+  width = parseInt(widthEl.value, 10);
+  document.getElementById('widthVal').textContent = width + ' px';
+  render();
+});
+
+/* quality slider */
+const qualityEl = document.getElementById('quality');
+qualityEl.addEventListener('input', () => {
+  quality = parseInt(qualityEl.value, 10);
+  document.getElementById('qualityVal').textContent = quality;
+  render();
+});
+
+/* format selector */
+const formatEl = document.getElementById('format');
+formatEl.addEventListener('change', () => {
+  format = formatEl.value;
+  document.getElementById('formatVal').textContent = format;
+  render();
+});
+
+document.getElementById('copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(deliveryUrl(asset));
+  const b = document.getElementById('copy'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy URL', 1200);
+});
+
+render();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

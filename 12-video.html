@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive Video Delivery — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Adaptive video</div>
+    <h1>Upload once. Stream to every device.</h1>
+    <p>You drop a single high-bitrate master file into Dynamic Media and it does the rest:
+       it automatically transcodes that one upload into a full <b>adaptive bitrate ladder</b>
+       (multiple resolutions and bitrates), then serves them through one viewer and one URL.
+       The player measures the viewer's network and device on the fly and picks the best
+       rendition — switching up or down as bandwidth changes — all edge-cached on the same
+       Scene7 CDN that delivers your images and 3D.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>The pipeline</h2>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge red">1 · Upload</span>
+          <span class="hint" style="margin:0 0 0 8px">One master, e.g. 1280×720, 30&nbsp;MB</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">2 · Auto-encode</span>
+          <span class="hint" style="margin:0 0 0 8px">DM transcodes an HLS/DASH ladder</span></div>
+        <div class="ctrl" style="margin-bottom:0"><span class="badge green">3 · Adaptive deliver</span>
+          <span class="hint" style="margin:0 0 0 8px">Viewer picks the bitrate per request</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Auto-generated renditions</h2>
+        <p class="hint" style="margin-top:0">From the single upload, the tenant encodes a ladder
+           like the one below. The player starts conservatively, then climbs as it confirms
+           headroom — and drops back instantly if the connection degrades.</p>
+        <div class="chips" style="margin-top:6px">
+          <span class="chip">…-0x400-800k</span>
+          <span class="chip">…-0x600-2000k</span>
+          <span class="chip">…-0x800-3000k</span>
+        </div>
+        <p class="hint">Each chip is one rung — <code>height × bitrate</code>. You never request
+           a specific one; the adaptive manifest hands the player the whole ladder.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why it matters</h2>
+        <p class="hint" style="margin-top:0">
+          No manual encoding, no per-device files to manage, no separate video host. The
+          <b>same viewer embed</b> works on a 5G phone and a corporate desktop — buffering on
+          slow links, full quality on fast ones. Configure the look (controls, autoplay,
+          captions) once on a <b>Video Viewer Preset</b> in DM and embed it everywhere.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage" style="padding:0; min-height:0; background:#000;">
+        <div style="position:relative; width:100%; padding-top:56.25%;">
+          <iframe id="viewer" title="Adobe Dynamic Media Video Viewer"
+                  style="position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:14px; display:block; background:#000;"
+                  allow="fullscreen; autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Video Viewer embed URL</span>
+          <button class="copy-btn" id="copyViewer">Copy URL</button>
+        </div>
+        <div class="url" id="viewerUrl"></div>
+      </div>
+      <p class="hint">The <code>asset</code> is the master video on the tenant; the viewer reads
+         the adaptive manifest and streams the right rendition. <code>serverUrl</code> and
+         <code>contenturl</code> are the same image- and binary-delivery endpoints used by every
+         other Dynamic Media asset.</p>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Poster frame — a still pulled from the video</span>
+          <button class="copy-btn" id="copyPoster">Copy URL</button>
+        </div>
+        <div class="url" id="posterUrl"></div>
+      </div>
+      <div class="stage" style="min-height:0; margin-top:14px;">
+        <img id="poster" alt="Poster frame generated from the video">
+      </div>
+      <p class="hint">Point the <b>image-serving</b> URL at a video asset and Dynamic Media
+         renders a <b>poster frame</b> on the fly — the same on-demand transform engine that
+         resizes and reformats stills. One asset feeds both the player and the thumbnail.</p>
+    </div>
+  </div>
+
+  <div style="border-left:6px solid var(--adobe-red,#eb1000);padding-left:16px;margin:40px 0 18px">
+    <div class="eyebrow">Adaptive streaming · live</div>
+    <h2 style="font-size:22px;font-weight:800;margin:4px 0 4px">Watch the player pick a stream</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0;max-width:820px">The DM video viewer above hides the mechanics. Here it is in the open: an <b>hls.js</b> player on a <b>reference adaptive ladder</b> — exactly the behaviour a DM-encoded video delivers. It shows the rung that's playing right now, the live bandwidth estimate, and lets you force a rung or simulate a bandwidth ceiling to watch it switch.</p>
+  </div>
+
+  <style>
+    #ladder{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+    .ladder-row{display:flex;justify-content:space-between;align-items:center;padding:7px 11px;border-radius:7px;background:var(--card-2,#1f1f22);border:1px solid var(--border,#333);font-size:13px}
+    .ladder-row.active{border-color:var(--adobe-red,#eb1000);background:rgba(235,16,0,.16);box-shadow:0 0 0 1px rgba(235,16,0,.4)}
+    .ladder-row .lr-res{font-weight:800}
+    .ladder-row .lr-br{font-family:var(--mono,monospace);color:var(--muted,#9a9a9a)}
+    #hv-cur{font-size:20px;font-weight:800}
+    #hv-bw{font-size:15px;color:var(--muted,#9a9a9a);margin-top:4px}
+  </style>
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Now playing</h2>
+        <div id="hv-cur">connecting…</div>
+        <div id="hv-bw">measuring bandwidth…</div>
+      </div>
+      <div class="card">
+        <h2>The bitrate ladder</h2>
+        <p class="hint" style="margin:0 0 2px">The active rung is highlighted as it switches.</p>
+        <div id="ladder"></div>
+      </div>
+      <div class="card">
+        <h2>Drive it</h2>
+        <div class="ctrl">
+          <label>Force a rendition</label>
+          <select id="qsel" style="width:100%;background:var(--bg-deep,#111);color:var(--text,#fff);border:1px solid var(--border,#333);border-radius:8px;padding:9px 11px;font-size:14px"></select>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Simulated bandwidth ceiling <span class="val" id="capV">unlimited</span></label>
+          <input type="range" id="cap" min="100000" max="5000000" step="50000" value="5000000">
+          <p class="hint" style="margin-top:6px">Lower it and the player steps <b>down</b> the ladder; raise it and it climbs back — the heart of adaptive bitrate.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-stage">
+      <div class="stage" style="padding:0;min-height:0;background:#000">
+        <video id="hv" controls muted playsinline style="width:100%;border-radius:14px;display:block"></video>
+      </div>
+      <p class="hint"><span class="badge blue">reference stream</span> A public 5-rung HLS test ladder (240p&ndash;1080p) stands in for your DM-encoded ladder, so the switching is visible. Your tenant asset would behave identically once encoded into a ladder.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const VIEWER  = 'https://s7g10.scene7.com/s7viewers/html5/VideoViewer.html';
+const ASSET   = 'RobertCo/SampleVideo_1280x720_30mb';
+const SERVER  = 'https://s7g10.scene7.com/is/image/';
+const CONTENT = 'https://s7g10.scene7.com/is/content/';
+const POSTER  = 'https://s7g10.scene7.com/is/image/RobertCo/SampleVideo_1280x720_30mb';
+
+function viewerParts(){
+  return [
+    ['asset', ASSET],
+    ['serverUrl', SERVER],
+    ['contenturl', CONTENT]
+  ];
+}
+
+function buildViewerUrl(){
+  return VIEWER + '?' + viewerParts().map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+
+function renderUrlHtml(host, path, parts){
+  let html = '<span class="host">https://' + host + '</span>'
+           + '<span class="path">' + path + '</span>';
+  parts.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  });
+  return html;
+}
+
+/* viewer */
+document.getElementById('viewer').src = buildViewerUrl();
+document.getElementById('viewerUrl').innerHTML =
+  renderUrlHtml('s7g10.scene7.com', '/s7viewers/html5/VideoViewer.html', viewerParts());
+
+/* poster */
+document.getElementById('poster').src = POSTER;
+document.getElementById('posterUrl').innerHTML =
+  renderUrlHtml('s7g10.scene7.com', '/is/image/RobertCo/SampleVideo_1280x720_30mb', []);
+
+/* copy buttons */
+function wireCopy(btnId, getUrl){
+  const b = document.getElementById(btnId);
+  b.addEventListener('click', ()=>{
+    navigator.clipboard.writeText(getUrl());
+    b.textContent = 'Copied!'; setTimeout(()=> b.textContent = 'Copy URL', 1200);
+  });
+}
+wireCopy('copyViewer', buildViewerUrl);
+wireCopy('copyPoster', ()=> POSTER);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+<script>
+(function(){
+  const REF='https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
+  const video=document.getElementById('hv');
+  const ladderEl=document.getElementById('ladder');
+  const curEl=document.getElementById('hv-cur'), bwEl=document.getElementById('hv-bw');
+  const qsel=document.getElementById('qsel'), cap=document.getElementById('cap'), capV=document.getElementById('capV');
+  const fmt=b=> b>=1e6 ? (b/1e6).toFixed(2)+' Mbps' : Math.round(b/1e3)+' kbps';
+  if(!window.Hls || !Hls.isSupported()){ video.src=REF; curEl.textContent='native HLS (Safari) — ladder introspection needs hls.js'; return; }
+  const hls=new Hls();
+  let levels=[];
+  hls.loadSource(REF); hls.attachMedia(video);
+  function paint(){
+    [...ladderEl.children].forEach(r=>r.classList.toggle('active', +r.dataset.i===hls.currentLevel));
+    const lv=levels[hls.currentLevel];
+    curEl.innerHTML = lv ? '<b>'+(lv.height||lv.width)+'p</b> &middot; '+fmt(lv.bitrate)+(hls.autoLevelEnabled?' <span class="badge green">auto</span>':' <span class="badge red">forced</span>') : 'selecting…';
+  }
+  hls.on(Hls.Events.MANIFEST_PARSED,function(){
+    levels=hls.levels;
+    ladderEl.innerHTML=levels.map((lv,i)=>'<div class="ladder-row" data-i="'+i+'"><span class="lr-res">'+(lv.height||lv.width)+'p</span><span class="lr-br">'+fmt(lv.bitrate)+'</span></div>').join('');
+    qsel.innerHTML='<option value="-1">Auto (adaptive)</option>'+levels.map((lv,i)=>'<option value="'+i+'">'+(lv.height||lv.width)+'p &middot; '+fmt(lv.bitrate)+'</option>').join('');
+    const mx=Math.max(...levels.map(l=>l.bitrate)), mn=Math.min(...levels.map(l=>l.bitrate));
+    cap.min=mn; cap.max=mx; cap.value=mx; capV.textContent='unlimited';
+    video.play().catch(()=>{}); paint();
+  });
+  hls.on(Hls.Events.LEVEL_SWITCHED,paint);
+  setInterval(()=>{ if(hls.bandwidthEstimate) bwEl.innerHTML='Estimated bandwidth: <b>'+fmt(hls.bandwidthEstimate)+'</b>'; },1000);
+  qsel.addEventListener('change',()=>{ hls.currentLevel=+qsel.value; paint(); });
+  cap.addEventListener('input',()=>{
+    const ceil=+cap.value; let idx=-1,best=-1;
+    levels.forEach((lv,i)=>{ if(lv.bitrate<=ceil && lv.bitrate>best){best=lv.bitrate; idx=i;} });
+    hls.autoLevelCapping=idx;
+    if(qsel.value!=='-1'){ qsel.value='-1'; hls.currentLevel=-1; }
+    capV.textContent = (+cap.value>=cap.max)?'unlimited':fmt(ceil)+' ceiling';
+    paint();
+  });
+})();
+</script>
+<script src="js/editable-values.js"></script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset Selector → Delivery URL — Dynamic Media OpenAPI</title>
+<link rel="stylesheet" href="css/demo.css">
+<!--
+  Adobe AEM Assets Selector (micro-frontend) — UMD build, loaded from Adobe's CDN.
+  This exposes the global `PureJSSelectors` with:
+    - registerAssetsSelectorsAuthService(imsAuthProps) -> ImsAuthService
+    - renderAssetSelectorWithAuthFlow(container, props, onRenderComplete?)  // runs its own IMS sign-in popup
+    - renderAssetSelector(container, props)                                  // expects a pasted imsToken
+  Docs: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/assets/manage/asset-selector
+        https://github.com/adobe/aem-assets-selectors-mfe-examples
+        https://experienceleague.adobe.com/.../asset-selector-integration/integrate-asset-selector-dynamic-media-open-api
+-->
+<script src="https://experience.adobe.com/solutions/CQ-assets-selectors/static-assets/resources/assets-selectors.js"></script>
+<style>
+  /* selector modal/host container — the MFE renders into this */
+  #assetSelectorHost { position:relative; min-height:0; }
+  #assetSelectorHost.rail { min-height:560px; height:70vh; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--bg-deep); }
+  .auth-state { display:flex; align-items:center; gap:10px; font-size:13px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted-2); flex:0 0 auto; }
+  .dot.ok { background:var(--green); } .dot.err { background:var(--adobe-red); }
+  .btn { background:var(--adobe-red); color:#fff; border:none; border-radius:8px; padding:11px 16px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; width:100%; }
+  .btn:hover { background:var(--adobe-red-dark); }
+  .btn:disabled { background:var(--card-2); color:var(--muted-2); cursor:not-allowed; }
+  .btn.secondary { background:var(--card-2); }
+  .btn.secondary:hover { background:var(--adobe-red); }
+  details.fallback { margin-top:14px; border-top:1px solid var(--border); padding-top:14px; }
+  details.fallback summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--muted); }
+  details.fallback textarea { width:100%; min-height:90px; margin-top:10px; background:var(--bg-deep); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:9px 11px; font-family:var(--mono); font-size:12px; resize:vertical; }
+  .pill { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 9px; border-radius:6px; background:var(--card-2); color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Embeddable UI</div>
+    <h1>Pick an asset, get a <em>delivery URL</em></h1>
+    <p>The Adobe <b>Asset Selector</b> is an embeddable micro-frontend you drop into <em>any</em> app — a CMS,
+       an email tool, a storefront. The user browses governed AEM assets in a familiar UI and picks one; the
+       selector hands your app back the asset's stable <b>Dynamic Media OpenAPI delivery URL</b>. No DAM login
+       in your app, no asset copies, no path guessing — sign in once with Adobe IMS and the picker returns a
+       URL you can paste straight into an <code style="font-family:var(--mono)">&lt;img&gt;</code>.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <h2>1 · Authorize with Adobe IMS</h2>
+        <div class="auth-state" style="margin-bottom:14px">
+          <span class="dot" id="authDot"></span>
+          <span id="authState">Not signed in</span>
+        </div>
+        <button class="btn" id="signInBtn">Sign in to Adobe &amp; open selector</button>
+
+        <details class="fallback">
+          <summary>Have an IMS token already? Paste it (fallback)</summary>
+          <p class="hint" style="margin-top:8px">
+            If the sign-in popup is blocked or your <code style="font-family:var(--mono)">imsClientId</code> isn't
+            provisioned for this origin, paste a valid IMS bearer token (e.g. from
+            <code style="font-family:var(--mono)">https://author-pXXXXX-eYYYYYY.adobeaemcloud.com</code> dev-tools, or
+            the Adobe IMS session) and open the selector directly.</p>
+          <textarea id="tokenPaste" placeholder="eyJhbGciOi… (IMS access token)"></textarea>
+          <button class="btn secondary" id="tokenBtn" style="margin-top:8px">Open selector with this token</button>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>2 · Target repository</h2>
+        <div class="ctrl">
+          <label>repositoryId <span class="pill">delivery tier</span></label>
+          <input type="text" id="repoId" value="delivery-pXXXXX-eYYYYYY.adobeaemcloud.com">
+        </div>
+        <p class="hint" style="margin-top:0">
+          This is the <b>DM OpenAPI delivery host</b>. Pinning <code style="font-family:var(--mono)">repositoryId</code>
+          hides the repo switcher and shows assets from this one repo. The matching <b>author</b> repo is
+          <code style="font-family:var(--mono)">author-pXXXXX-eYYYYYY.adobeaemcloud.com</code> — use the author host here
+          if you want to browse the full DAM tree instead of only approved+published delivery assets.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why this matters</h2>
+        <p class="hint" style="margin-top:0">
+          The selector is the <b>same component AEM uses internally</b> — provisioned to your IMS org, it enforces
+          permissions and governance. Your app never holds AEM credentials; it only receives a delivery URL for an
+          asset the user is allowed to see. That URL (<code style="font-family:var(--mono)">/adobe/assets/urn:aaid:aem:&lt;uuid&gt;/as/&lt;name&gt;.jpg</code>)
+          is the <b>stable, approval-gated OpenAPI endpoint</b> — drop it into any HTML, email or product page.</p>
+      </div>
+
+      <div class="card">
+        <h2>How to get a client ID</h2>
+        <p class="hint" style="margin-top:0">
+          The in-browser sign-in needs an Asset-Selector <b>provisioned</b> <code style="font-family:var(--mono)">imsClientId</code>.
+          Adobe Developer Console client IDs do <b>not</b> work, and Adobe ships <b>no public sample</b> — every official
+          example uses a <code style="font-family:var(--mono)">&lt;YOUR_IMS_CLIENT_ID&gt;</code> placeholder. Two ways to get a real one:</p>
+        <p class="hint" style="margin-top:10px;margin-bottom:4px"><b>A · Provision one (official):</b></p>
+        <p class="hint" style="margin-top:0">
+          Your <b>program admin</b> raises a <b>P2 support ticket from the Admin Console</b> requesting Asset Selector /
+          Content Advisor provisioning, including the <b>Program ID + Environment ID</b> of the AEM CS instance and the
+          <b>domain name(s)</b> where this app is hosted (the allowed origins). Adobe returns an
+          <code style="font-family:var(--mono)">imsClientId</code>, <code style="font-family:var(--mono)">imsScope</code> and
+          <code style="font-family:var(--mono)">redirectUrl</code> per environment.</p>
+        <p class="hint" style="margin-top:10px;margin-bottom:4px"><b>B · Reuse an existing one (if your org already runs it):</b></p>
+        <p class="hint" style="margin-top:0">
+          If your org already uses <b>Content Hub</b> or the AEM <b>Assets view</b> at
+          <code style="font-family:var(--mono)">experience.adobe.com</code>, open it signed-in, open browser DevTools →
+          <b>Network</b>, filter for <code style="font-family:var(--mono)">ims</code>/<code style="font-family:var(--mono)">authorize</code>,
+          and read the <code style="font-family:var(--mono)">client_id</code> on the IMS auth request. That same provisioned
+          id can drive this selector — paste it into <code style="font-family:var(--mono)">CONFIG.imsClientId</code>.
+          (Quickest interim path: just use the <b>paste-a-token</b> fallback above — no client id needed.)</p>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <!-- the Asset Selector MFE renders here (rail mode) -->
+      <div id="assetSelectorHost" class="rail">
+        <div id="selectorPlaceholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;color:var(--muted)">
+          <div style="font-size:46px;line-height:1;margin-bottom:14px;opacity:.5">🗂️</div>
+          <div style="font-weight:700;color:#e8e8e8;font-size:16px;margin-bottom:6px">Asset Selector loads here</div>
+          <div class="hint" style="margin-top:0;max-width:420px">Click <b>Sign in to Adobe &amp; open selector</b>. The embeddable
+            AEM Asset Selector micro-frontend mounts in this panel, you browse approved assets, and your pick lands below.</div>
+        </div>
+      </div>
+
+      <!-- RESULT: picked asset -->
+      <div class="card" id="resultCard" style="margin-top:20px;display:none">
+        <h2>Selected asset → delivery URL <span class="badge green" id="okBadge">picked</span></h2>
+        <div class="grid" style="grid-template-columns:minmax(0,300px) 1fr; align-items:start">
+          <!-- live preview -->
+          <div class="tile">
+            <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+              <img id="preview" alt="selected asset preview" style="width:100%;height:100%;object-fit:cover">
+            </div>
+            <div class="cap">
+              <div class="t" id="assetName">—</div>
+              <div class="s" id="assetMeta">—</div>
+            </div>
+          </div>
+          <!-- returned fields -->
+          <div class="card" style="padding:18px;background:var(--bg-deep)">
+            <h2 style="margin-bottom:14px">Returned by <code style="font-family:var(--mono);text-transform:none;letter-spacing:0">handleSelection</code></h2>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.5">
+              <tbody id="fieldTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- delivery URL -->
+        <div class="urlbar">
+          <div class="label-row">
+            <span>Dynamic Media OpenAPI delivery URL</span>
+            <button class="copy-btn" id="copyUrl">Copy URL</button>
+          </div>
+          <div class="url" id="deliveryUrl"></div>
+        </div>
+
+        <p class="hint"><b>That URL is the deliverable.</b> It's built from the selection's
+          <code style="font-family:var(--mono)">repo:repositoryId</code> + <code style="font-family:var(--mono)">repo:assetId</code>
+          + <code style="font-family:var(--mono)">repo:name</code> — a stable OpenAPI endpoint that works in any app, only resolves
+          for approved+published assets, and applies on-the-fly transforms (<code style="font-family:var(--mono)">?width=…</code>).</p>
+      </div>
+
+      <p class="hint" id="globalNote" style="margin-top:18px">
+        <b>Live requirements:</b> needs Adobe <b>IMS auth</b> (the selector's own sign-in, or a pasted token).
+        Only assets that are <b>approved &amp; published</b> appear on the delivery tier. The returned URL is the
+        <b>stable OpenAPI delivery URL</b>, reusable anywhere.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   CONFIG — RobertCo tenant (program XXXXX, env YYYYYY)
+   ----------------------------------------------------------------------------
+   imsClientId / imsScope / redirectUrl come from Adobe when the Asset Selector
+   is *provisioned* for your IMS org (a support ticket — Developer-Console client
+   IDs do NOT work with this MFE). Fill IMS_CLIENT_ID below with the provisioned
+   value to make the in-browser sign-in flow live. Until then, use the
+   "paste a token" fallback, which is fully functional.
+
+   NOTE ON A "SAMPLE" CLIENT ID: Adobe's official example repo
+   (github.com/adobe/aem-assets-selectors-mfe-examples) deliberately ships NO
+   working sample client id. Every example uses the placeholder
+   `<YOUR_IMS_CLIENT_ID>` / `%%IMS_CLIENT_ID%%` and the repo README states:
+   "In order to obtain an IMS_CLIENT_ID you will need to raise a support ticket
+   with Adobe. Client Id's created via Adobe Developer Console will not work."
+   So there is no public default we can wire in — the placeholder below is
+   correct, and the in-page instructions explain how to obtain a real one.
+   ============================================================================ */
+const CONFIG = {
+  // <<< REPLACE with the Adobe-provisioned Asset Selector client id for the corp IMS org.
+  //     (No public sample id exists — see note above + the "How to get a client id" panel.)
+  imsClientId : 'REPLACE_WITH_PROVISIONED_ASSET_SELECTOR_CLIENT_ID',
+  // Canonical scope string from Adobe's official examples (README + examples/*).
+  // Source: github.com/adobe/aem-assets-selectors-mfe-examples — examples/vanilla-js/index.html.
+  imsScope    : 'AdobeID,openid,additional_info.projectedProductContext,read_organizations',
+  // Corp IMS org. (If the selector should auto-pin to one org, set this; null lets the user choose.)
+  imsOrg      : null,
+  // AEM Discovery service key — standard fixed value used by the selector for non-Adobe apps.
+  apiKey      : 'asset_search_service',
+  // Default target repo: the DM OpenAPI *delivery* host for this tenant.
+  repositoryId: 'delivery-pXXXXX-eYYYYYY.adobeaemcloud.com',
+  // 'delivery' => show only approved+published assets (no folder tree). 'author' => browse the DAM tree.
+  aemTierType : 'delivery',
+  // IMS environment. 'prod' for production IMS (corp org). Use 'stage' only against stage IMS.
+  env         : 'prod',
+};
+
+let imsAuthService = null;   // returned by registerAssetsSelectorsAuthService
+let pastedToken    = null;   // fallback path
+
+const $ = id => document.getElementById(id);
+
+function setAuth(state, cls){
+  $('authState').textContent = state;
+  $('authDot').className = 'dot' + (cls ? ' ' + cls : '');
+}
+
+/* -- Build the delivery URL from the selected-asset JSON ---------------------
+   Per the DM OpenAPI integration docs, handleSelection returns objects shaped:
+     {
+       "dc:format":         "image/jpeg",
+       "repo:assetId":      "urn:aaid:aem:xxxxxxxx-...",
+       "repo:name":         "image-7.jpg",
+       "repo:repositoryId": "delivery-pxxxx-exxxxxx.adobeaemcloud.com"
+       // delivery-enabled selections may also carry _links with ready-made hrefs.
+     }
+   Delivery URL = https://<repo:repositoryId>/adobe/assets/<repo:assetId>/as/<seo-name>.<ext>
+----------------------------------------------------------------------------- */
+function buildDeliveryUrl(a){
+  // Prefer an explicit href the selector may already provide (DM OpenAPI rendition link).
+  const linkHref = a && a._links && (
+        (a._links['http://ns.adobe.com/adobecloud/rel/rendition'] || {}).href ||
+        (a._links['http://ns.adobe.com/adobecloud/rel/delivery']  || {}).href ||
+        (a._links.delivery || {}).href);
+  if (linkHref) return linkHref;
+
+  const host   = a['repo:repositoryId'] || $('repoId').value.trim();
+  const id     = a['repo:assetId'] || a['repo:id'] || a.id;
+  if (!host || !id) return null;
+
+  const fmt    = (a['dc:format'] || 'image/jpeg').split('/').pop().replace('jpeg','jpg');
+  const rawName= a['repo:name'] || (id + '.' + fmt);
+  const seoName= rawName.replace(/\.[^.]+$/, '');   // strip original extension
+  return `https://${host}/adobe/assets/${id}/as/${seoName}.${fmt}`;
+}
+
+function colorUrl(url){
+  // host / path color-coding to match sibling demos
+  try {
+    const u = new URL(url);
+    return '<span class="host">' + u.protocol + '//' + u.host + '</span>'
+         + '<span class="path">' + u.pathname + '</span>'
+         + (u.search ? '<span class="q">' + u.search + '</span>' : '');
+  } catch(e){ return url; }
+}
+
+function showResult(a){
+  const url = buildDeliveryUrl(a);
+  $('selectorPlaceholder') && ($('selectorPlaceholder').style.display = 'none');
+  $('resultCard').style.display = 'block';
+
+  $('assetName').textContent = a['repo:name'] || a['repo:assetId'] || '(asset)';
+  $('assetMeta').textContent = (a['dc:format'] || '') + ' · ' + (a['repo:assetId'] || '').slice(0, 32) + '…';
+
+  // field table — only show the fields actually present
+  const rows = ['repo:assetId','repo:name','dc:format','repo:repositoryId','repo:path','dam:assetStatus'];
+  const tbody = $('fieldTable'); tbody.innerHTML = '';
+  rows.forEach(k => {
+    if (a[k] === undefined) return;
+    const tr = document.createElement('tr');
+    tr.style.borderTop = tbody.children.length ? '1px solid var(--border)' : 'none';
+    tr.innerHTML = '<td style="padding:7px 8px 7px 0;color:var(--muted);width:40%;font-family:var(--mono)">' + k + '</td>'
+                 + '<td style="padding:7px 0;font-family:var(--mono);word-break:break-all">' + a[k] + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  if (url){
+    $('deliveryUrl').innerHTML = colorUrl(url);
+    $('deliveryUrl').dataset.url = url;
+    // live preview, scaled down on the fly
+    const sep = url.includes('?') ? '&' : '?';
+    $('preview').src = url + sep + 'width=480';
+  } else {
+    $('deliveryUrl').textContent = 'Could not derive a delivery URL from the selection payload (see console).';
+  }
+  console.log('Asset Selector → handleSelection payload:', a);
+}
+
+/* handleSelection receives an ARRAY of selected assets (single-select => length 1). */
+function handleSelection(assets){
+  if (!assets || !assets.length){ return; }
+  showResult(assets[0]);
+}
+
+/* Common props passed to both render paths. */
+function selectorProps(extra){
+  return Object.assign({
+    imsOrg          : CONFIG.imsOrg,
+    apiKey          : CONFIG.apiKey,
+    repositoryId    : $('repoId').value.trim() || CONFIG.repositoryId,
+    aemTierType     : CONFIG.aemTierType,
+    env             : CONFIG.env,
+    rail            : true,            // render inline (left-rail style) instead of a modal overlay
+    selectionType   : 'single',
+    colorScheme     : 'dark',          // match the demo theme
+    handleSelection : handleSelection,
+  }, extra || {});
+}
+
+/* -- Path A: the selector runs its own IMS sign-in popup --------------------- */
+function signInAndOpen(){
+  if (typeof PureJSSelectors === 'undefined'){
+    setAuth('Selector script failed to load (CDN/network).', 'err'); return;
+  }
+  if (CONFIG.imsClientId.startsWith('REPLACE_')){
+    setAuth('imsClientId not set — use the paste-token fallback below.', 'err');
+    alert('No provisioned imsClientId is configured.\n\n'
+        + 'The in-browser Adobe sign-in needs an Asset-Selector client id that Adobe '
+        + 'provisions for your IMS org (a P2 Admin Console support ticket — Developer Console '
+        + 'client ids do NOT work, and Adobe ships no public sample id).\n\n'
+        + 'See the "How to get a client id" panel on this page for the provisioning steps and '
+        + 'the trick to reuse an existing one from Content Hub / Assets view.\n\n'
+        + 'Quickest path right now: use the "Paste a token" fallback below.');
+    return;
+  }
+  setAuth('Opening Adobe sign-in…');
+  try {
+    // 1) Register the IMS auth service (do this once, ideally on page load).
+    imsAuthService = PureJSSelectors.registerAssetsSelectorsAuthService({
+      imsClientId : CONFIG.imsClientId,
+      imsScope    : CONFIG.imsScope,
+      redirectUrl : window.location.href,
+      env         : CONFIG.env,
+      modalMode   : true,   // popup sign-in rather than full-page redirect
+      onAccessTokenReceived: (token) => setAuth('Signed in ✓', 'ok'),
+      onErrorReceived      : (type, msg) => setAuth('Auth error: ' + (msg || type), 'err'),
+    });
+
+    // 2) Render with the auth flow — this triggers IMS sign-in if no token yet.
+    PureJSSelectors.renderAssetSelectorWithAuthFlow(
+      $('assetSelectorHost'),
+      selectorProps(),
+      () => { $('selectorPlaceholder') && ($('selectorPlaceholder').style.display = 'none'); }
+    );
+  } catch(e){
+    console.error(e);
+    setAuth('Could not start sign-in: ' + e.message, 'err');
+  }
+}
+
+/* -- Path B: fallback — render with a pasted imsToken ------------------------ */
+function openWithToken(){
+  const t = $('tokenPaste').value.trim();
+  if (!t){ alert('Paste an IMS access token first.'); return; }
+  if (typeof PureJSSelectors === 'undefined'){
+    setAuth('Selector script failed to load (CDN/network).', 'err'); return;
+  }
+  pastedToken = t;
+  setAuth('Using pasted token', 'ok');
+  try {
+    PureJSSelectors.renderAssetSelector(
+      $('assetSelectorHost'),
+      selectorProps({ imsToken: pastedToken })
+    );
+    $('selectorPlaceholder') && ($('selectorPlaceholder').style.display = 'none');
+  } catch(e){
+    console.error(e);
+    setAuth('Render failed: ' + e.message, 'err');
+  }
+}
+
+/* wiring */
+$('signInBtn').addEventListener('click', signInAndOpen);
+$('tokenBtn').addEventListener('click', openWithToken);
+$('copyUrl').addEventListener('click', () => {
+  const url = $('deliveryUrl').dataset.url; if (!url) return;
+  navigator.clipboard.writeText(url);
+  const b = $('copyUrl'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy URL', 1200);
+});
+
+/* startup sanity */
+window.addEventListener('load', () => {
+  if (typeof PureJSSelectors === 'undefined'){
+    setAuth('Asset Selector script did not load — check network/CDN access.', 'err');
+    $('signInBtn').disabled = true;
+  } else {
+    setAuth('Not signed in');
+  }
+});
+</script>
+</body>
+</html>

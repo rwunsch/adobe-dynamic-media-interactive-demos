@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classic vs Dynamic Media OpenAPI — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Two delivery layers</div>
+    <h1>Same master, two delivery APIs</h1>
+    <p>One approved master asset on the <b>RobertCo</b> tenant, delivered side by side by two layers.
+       <b>Classic</b> is Scene7 image-serving — addressed by company + asset name, the engine behind the
+       legacy s7viewers. <b>Dynamic Media OpenAPI</b> is AEM-native — addressed by the asset's stable
+       AEM ID and governed by approval + publish. Pick an asset, drag the shared sliders, and watch
+       <em>your</em> browser fetch both at the chosen width and quality.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+
+      <div class="card">
+        <h2>Shared request</h2>
+        <div class="ctrl">
+          <label>Width <span class="val" id="wV">800</span></label>
+          <input type="range" id="w" min="200" max="1200" step="20" value="800">
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Quality <span class="val" id="qV">80</span></label>
+          <input type="range" id="q" min="20" max="95" step="1" value="80">
+        </div>
+        <p class="hint" id="cmpLine" style="margin-top:16px">Measuring…</p>
+      </div>
+
+      <div class="card">
+        <h2>What each one is</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:14px">
+          Two ways to deliver the <b>same master asset</b> — a mature platform and the AEM-native successor.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45">
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)"></td>
+            <th style="padding:6px 8px;text-align:left"><span class="badge red">DM Classic</span></th>
+            <th style="padding:6px 8px;text-align:left"><span class="badge blue">DM OpenAPI</span></th>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Platform</td>
+            <td style="padding:6px 8px">Scene7 (S7) — assets synced from AEM to the Scene7 cloud</td>
+            <td style="padding:6px 8px">AEM-native — assets delivered straight from AEM as a Cloud Service</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Delivery host</td>
+            <td style="padding:6px 8px"><code style="font-family:var(--mono)">*.scene7.com</code></td>
+            <td style="padding:6px 8px"><code style="font-family:var(--mono)">delivery-p…-e….adobeaemcloud.com</code></td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Addressed by</td>
+            <td style="padding:6px 8px">company + asset <b>name</b> (<code style="font-family:var(--mono)">is/image/Co/name</code>)</td>
+            <td style="padding:6px 8px">stable AEM <b>asset UUID</b> (<code style="font-family:var(--mono)">urn:aaid:aem:…</code>) — survives renames/moves</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Params</td>
+            <td style="padding:6px 8px"><code style="font-family:var(--mono)">wid</code>, <code style="font-family:var(--mono)">qlt</code>, <code style="font-family:var(--mono)">op_*</code> (rich IS protocol)</td>
+            <td style="padding:6px 8px"><code style="font-family:var(--mono)">width</code>, <code style="font-family:var(--mono)">quality</code> (REST / OpenAPI spec)</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Governance</td>
+            <td style="padding:6px 8px">S7 publish / activation</td>
+            <td style="padding:6px 8px">AEM — <b>Review Status = approved</b> + publish gates public delivery</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Powers</td>
+            <td style="padding:6px 8px">image presets, templates, the s7viewers, mature feature set</td>
+            <td style="padding:6px 8px">headless / Content Hub / Edge Delivery, single API, no S7 sync</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Status</td>
+            <td style="padding:6px 8px">mature, broad feature coverage</td>
+            <td style="padding:6px 8px"><b>strategic direction</b>, still expanding capabilities</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="tile">
+          <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img id="imgClassic" alt="classic scene7 delivery" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="cap">
+            <div class="t">Classic · Scene7 <span class="badge red">Legacy</span></div>
+            <div class="s">company + name · <code style="font-family:var(--mono)">is/image</code></div>
+            <div class="m-val" id="sizeClassic" style="font-size:22px;margin-top:6px">—</div>
+          </div>
+        </div>
+        <div class="tile">
+          <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img id="imgDmoapi" alt="dynamic media openapi delivery" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="cap">
+            <div class="t">Dynamic Media OpenAPI <span class="badge blue">AEM-native</span></div>
+            <div class="s">AEM asset ID · approval-gated</div>
+            <div class="m-val" id="sizeDmoapi" style="font-size:22px;margin-top:6px">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row"><span>Classic · Scene7 image-serving URL</span>
+          <button class="copy-btn" id="copyClassic">Copy URL</button></div>
+        <div class="url" id="urlClassic"></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row"><span>Dynamic Media OpenAPI delivery URL</span>
+          <button class="copy-btn" id="copyDmoapi">Copy URL</button></div>
+        <div class="url" id="urlDmoapi"></div>
+      </div>
+
+      <p class="hint">Same pixels, two front doors. Classic addressing is by
+        <b>company + asset name</b> and is what the existing s7viewers call; OpenAPI addressing is by the
+        asset's <b>AEM ID</b>, so renditions follow the asset through AEM governance —
+        approve + publish, and the same ID delivers everywhere. Each unique URL renders once, then edge-caches.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Assets verified delivering BOTH ways on the RobertCo tenant (classic name == DMoAPI seoname). */
+const ASSETS = [
+  {name:'forest-trail',        label:'Forest trail — cycling', uuid:'8c18286d-c218-4efc-aa07-35d846406079'},
+  {name:'alpinists-himalayas', label:'Alpinists — Himalayas',  uuid:'921a99f7-421f-487b-87ef-0c2e16677ff4'},
+  {name:'freeride-steep',      label:'Freeride — skiing',      uuid:'107803ca-7c1e-490e-afdc-dfc0bda92bff'},
+  {name:'surfing_2',           label:'Surfer — Costa Rica',    uuid:'77ed958c-9433-471d-9b37-f770de400bf2'},
+  {name:'camp-summer-night',   label:'Camp — summer night',    uuid:'77d670de-b9f5-4c71-aeff-70db1b49c4a1'},
+  {name:'mountain-biking',     label:'Mountain biking',        uuid:'3ecd0448-4b54-4238-b865-dd909ef879b9'},
+  {name:'ice-climbing',        label:'Ice climbing',           uuid:'868c2a49-c1a3-46e7-b606-a962534ba1fc'},
+];
+
+const CLASSIC_SERVER = 'https://s7g10.scene7.com';
+const CLASSIC_COMPANY = 'RobertCo';
+const DMOAPI_HOST = 'https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com';
+
+let asset = ASSETS[0];
+const state = { w:800, q:80 };
+
+function classicBase(a){ return `${CLASSIC_SERVER}/is/image/${CLASSIC_COMPANY}/${a.name}`; }
+function dmoapiBase(a){ return `${DMOAPI_HOST}/adobe/assets/urn:aaid:aem:${a.uuid}/as/${a.name}.jpg`; }
+
+function classicUrl(a){ return `${classicBase(a)}?wid=${state.w}&qlt=${state.q}`; }
+function dmoapiUrl(a){ return `${dmoapiBase(a)}?width=${state.w}&quality=${state.q}`; }
+
+/* color-coded anatomy: host / path / ?(q) / key(k) / value(v) / &(amp) */
+function classicUrlHtml(a){
+  return '<span class="host">' + CLASSIC_SERVER + '</span>'
+    + '<span class="path">/is/image/' + CLASSIC_COMPANY + '/' + a.name + '</span>'
+    + '<span class="q">?</span><span class="k">wid</span>=<span class="v">' + state.w + '</span>'
+    + '<span class="amp">&amp;</span><span class="k">qlt</span>=<span class="v">' + state.q + '</span>';
+}
+function dmoapiUrlHtml(a){
+  return '<span class="host">' + DMOAPI_HOST + '</span>'
+    + '<span class="path">/adobe/assets/urn:aaid:aem:' + a.uuid + '/as/' + a.name + '.jpg</span>'
+    + '<span class="q">?</span><span class="k">width</span>=<span class="v">' + state.w + '</span>'
+    + '<span class="amp">&amp;</span><span class="k">quality</span>=<span class="v">' + state.q + '</span>';
+}
+
+let token = 0;
+function render(){
+  document.getElementById('urlClassic').innerHTML = classicUrlHtml(asset);
+  document.getElementById('urlDmoapi').innerHTML = dmoapiUrlHtml(asset);
+  const my = ++token;
+  const t = '&t=' + Math.floor(performance.now());   // cache-bust so each drag is a real fetch
+
+  const grab = (url, imgId, sizeId) =>
+    fetch(url, {cache:'no-store'}).then(r => r.blob()).then(b => {
+      if(my !== token) return null;                  // ignore stale responses
+      document.getElementById(imgId).src = URL.createObjectURL(b);
+      document.getElementById(sizeId).textContent = (b.size/1024).toFixed(0) + ' KB';
+      return b.size;
+    }).catch(() => {
+      if(my !== token) return null;
+      document.getElementById(sizeId).textContent = '—';
+      return null;
+    });
+
+  Promise.all([
+    grab(classicUrl(asset) + t, 'imgClassic', 'sizeClassic'),
+    grab(dmoapiUrl(asset)  + t, 'imgDmoapi',  'sizeDmoapi')
+  ]).then(([c, d]) => {
+    if(my !== token) return;
+    const el = document.getElementById('cmpLine');
+    if(c && d){
+      el.innerHTML = `At <b>${state.w}px</b> / quality <b>${state.q}</b>: Classic <b>${(c/1024).toFixed(0)} KB</b> `
+        + `· OpenAPI <b>${(d/1024).toFixed(0)} KB</b> — same master, delivered live by both layers.`;
+    } else {
+      el.innerHTML = 'Same master, delivered live by both layers.';
+    }
+  });
+}
+
+/* asset chips */
+const chipHost = document.createElement('div');
+chipHost.className = 'chips';
+chipHost.style.marginTop = '8px';
+ASSETS.forEach((a, i) => {
+  const c = document.createElement('span');
+  c.className = 'chip' + (i === 0 ? ' active' : '');
+  c.textContent = a.label;
+  c.addEventListener('click', () => {
+    chipHost.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    asset = a;
+    render();
+  });
+  chipHost.appendChild(c);
+});
+const picker = document.getElementById('picker');
+picker.innerHTML = '<label style="display:block;font-size:13px;font-weight:600;margin-bottom:7px;color:#e8e8e8">'
+  + 'Asset <span style="color:#919191;font-weight:400">· delivers both ways</span></label>';
+picker.appendChild(chipHost);
+
+document.getElementById('w').addEventListener('input', e => { state.w=+e.target.value; document.getElementById('wV').textContent=e.target.value; render(); });
+document.getElementById('q').addEventListener('input', e => { state.q=+e.target.value; document.getElementById('qV').textContent=e.target.value; render(); });
+
+function bindCopy(btnId, fn){
+  document.getElementById(btnId).addEventListener('click', () => {
+    navigator.clipboard.writeText(fn(asset));
+    const b = document.getElementById(btnId); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy URL', 1200);
+  });
+}
+bindCopy('copyClassic', classicUrl);
+bindCopy('copyDmoapi', dmoapiUrl);
+
+render();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

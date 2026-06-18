@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Crop — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Responsive Smart Crop</div>
+    <h1>Author once, deliver every aspect ratio</h1>
+    <p>Smart Crop uses content-aware AI to keep the subject in frame while re-cropping a single
+       master to any aspect ratio you define — square for a thumbnail, 16:9 for a hero, tall for
+       mobile, a wide strip for a banner. No designer re-crops anything; each ratio is just a
+       named crop appended to the same asset URL.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>One master asset</h2>
+        <div class="stage" style="min-height:auto;padding:12px">
+          <img id="master" src="https://s7g10.scene7.com/is/image/RobertCo/person-in-black-face-mask-on-a-blue-bus?wid=360" alt="master">
+        </div>
+        <p class="hint" style="margin-top:12px">854 × 1280 original. The crops on the right are all
+           generated from this one file, on the fly.</p>
+      </div>
+      <div class="card">
+        <h2>How it's addressed</h2>
+        <div class="url" style="font-size:12.5px">
+          <span class="path">…/RobertCo/<wbr>person-in-black-face-mask-on-a-blue-bus</span><span class="q">:</span><span class="k" id="addr">169banner</span><span class="amp">?</span><span class="k">wid</span>=<span class="v">600</span>
+        </div>
+        <p class="hint">The part after the colon is the <b>named Smart Crop</b> configured on the
+           Image Profile. Hover a tile to see its URL.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="grid" id="grid" style="grid-template-columns:repeat(2,1fr)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE='https://s7g10.scene7.com/is/image/RobertCo/person-in-black-face-mask-on-a-blue-bus';
+const CROPS=[
+  {name:'11square',  label:'1:1 — Square thumb',   ratio:'1 / 1',   w:600},
+  {name:'169banner', label:'16:9 — Hero / video',  ratio:'16 / 9',  w:600},
+  {name:'54vert',    label:'4:5 — Mobile portrait', ratio:'4 / 5',  w:480},
+  {name:'61banner',  label:'6:1 — Wide banner',     ratio:'6 / 1',  w:600},
+];
+const grid=document.getElementById('grid');
+CROPS.forEach(c=>{
+  const url=`${BASE}:${c.name}?wid=${c.w}`;
+  const t=document.createElement('div'); t.className='tile';
+  t.innerHTML=`<div style="aspect-ratio:${c.ratio};background:#222;display:flex;align-items:center;justify-content:center;overflow:hidden">
+      <img src="${url}" alt="${c.label}" style="width:100%;height:100%;object-fit:cover">
+    </div>
+    <div class="cap"><div class="t">${c.label}</div>
+    <div class="s">:${c.name}</div></div>`;
+  t.title=url;
+  grid.appendChild(t);
+});
+</script>
+</body>
+</html>

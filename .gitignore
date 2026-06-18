@@ -1,0 +1,16 @@
+# Local secrets / config — never commit
+.env
+*.local.env
+!.env.example
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc

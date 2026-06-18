@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1-to-1 Templating — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · 1-to-1 personalization</div>
+    <h1>One template, a million personalized banners</h1>
+    <p>A designer builds the product banner <b>once</b> — the layout, the fonts, the layer stack, the
+       lighting. After that, marketing (or a personalization engine) generates unlimited <b>1-to-1</b>
+       variants purely through URL parameters: swap the product cutout, rewrite the headline, change the
+       price, restyle the colours. No new files, no round-trip to Photoshop. This is a real template on
+       Adobe's public <code style="font-family:var(--mono)">Viewers</code> demo tenant:
+       <code style="font-family:var(--mono)">1-to-1-template-square</code>.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <h2>Product</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="seg" id="prodSeg">
+            <button data-v="Viewers/h6-lightpink" class="active">Headphones</button>
+            <button data-v="Viewers/a2-lightpink">Earbuds</button>
+            <button data-v="Viewers/h8-lightpink">Over-ear</button>
+          </div>
+          <p class="hint" style="margin-top:14px">Each option is a transparent product cutout asset. The
+            template drops whichever one the <code style="font-family:var(--mono)">$product</code>
+            parameter names into the layered composition.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Copy</h2>
+        <div class="ctrl">
+          <label>Product title</label>
+          <input type="text" id="title" value="AEM-1">
+        </div>
+        <div class="ctrl">
+          <label>Headline <span style="color:var(--muted-2);font-weight:400">(Enter = new line)</span></label>
+          <textarea id="headline" rows="2" style="width:100%;background:var(--bg-deep);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:13px;resize:vertical">dynamic range.
+pure sound.</textarea>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Price</label>
+          <input type="text" id="price" value="$399">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Palette</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="chips" id="paletteChips">
+            <span class="chip active" data-bg="b6a59b" data-text="525344">Sandstone</span>
+            <span class="chip" data-bg="2c2c2c" data-text="ffffff">Slate</span>
+            <span class="chip" data-bg="eb1000" data-text="ffffff">Adobe&nbsp;Red</span>
+            <span class="chip" data-bg="0aa35b" data-text="ffffff">Forest</span>
+            <span class="chip" data-bg="f3c600" data-text="2c2c2c">Sunshine</span>
+          </div>
+          <p class="hint" style="margin-top:14px">One chip sets the background plus a readable text colour.
+            All four type layers — title, headline, price — recolour from the same URL.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Why 1-to-1</h2>
+        <p class="hint" style="margin-top:0">The template encapsulates the <b>design</b> — the layer stack,
+          the fonts, the positioning. Consumers only supply <b>data</b>: a product, three strings, a couple
+          of colours. Feed it a product catalog or a customer segment and generate thousands of personalized
+          creatives from one source of truth.</p>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="out" alt="personalized banner render"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Template</div><div class="m-val" style="font-size:15px">1-to-1-template-square</div></div>
+        <div class="metric"><div class="m-label">Layers</div><div class="m-val" style="font-size:15px">product · 3× text · bg</div></div>
+        <div class="metric"><div class="m-label">Delivered</div><div class="m-val" id="mBytes" style="font-size:18px">—</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live template URL (parameters only)</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">Template parameters start with <code style="font-family:var(--mono)">$</code> — they
+        feed the named layers the designer wired up. Note the colour convention:
+        <code style="font-family:var(--mono)">$background_color</code> takes a
+        <code style="font-family:var(--mono)">0x</code> prefix, while the text colours are bare hex.
+        <code style="font-family:var(--mono)">$headline</code> accepts
+        <code style="font-family:var(--mono)">\par</code> for line breaks; the type styling lives in the
+        template, not the URL.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOST='s7d1.scene7.com';
+const PATH='/is/image/Viewers/1-to-1-template-square';
+const BASE='https://'+HOST+PATH;
+
+const state={
+  product:'Viewers/h6-lightpink',
+  title:'AEM-1',
+  headline:'dynamic range.\npure sound.',
+  price:'$399',
+  bg:'b6a59b',     // bare hex; $background_color gets a 0x prefix
+  text:'525344'    // bare hex; text colour params take bare hex
+};
+
+// user newlines -> RTF \par ; the template inserts $headline into its own styled RTF
+function headlineParam(){
+  return state.headline.split('\n').map(s=>s.trim()).filter(Boolean).join(' \\par ');
+}
+
+// build the parameter list -> [ [key, rawValue], ... ]  (raw, un-encoded values)
+function params(){
+  return [
+    ['scl', '1'],
+    ['$product', state.product],
+    ['$product_title', state.title],
+    ['$headline', headlineParam()],
+    ['$price', state.price],
+    ['$background_color', '0x'+state.bg],   // 0x prefix per the template's convention
+    ['$product_title_color', state.text],   // bare hex
+    ['$headline_color', state.text],        // bare hex
+    ['$price_color', state.text]            // bare hex
+  ];
+}
+
+function buildUrl(){
+  const q = params().map(([k,v]) => k+'='+encodeURIComponent(v)).join('&');
+  return BASE + '?' + q;
+}
+
+function renderUrlHtml(){
+  let html = '<span class="host">https://'+HOST+'</span><span class="path">'+PATH+'</span>';
+  params().forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    const vEsc = String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+vEsc+'</span>';
+  });
+  return html;
+}
+
+let token=0;
+function update(){
+  document.getElementById('url').innerHTML = renderUrlHtml();
+  const my = ++token, out = document.getElementById('out');
+  fetch(buildUrl(), {cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    if(my !== token) return;                 // ignore stale responses from rapid edits
+    out.src = URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent = (b.size/1024).toFixed(0)+' KB';
+  }).catch(()=>{ if(my===token) out.src = buildUrl(); });
+}
+
+/* ---- wiring ---- */
+document.querySelectorAll('#prodSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#prodSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); state.product = b.dataset.v; update();
+}));
+document.getElementById('title').addEventListener('input',e=>{ state.title=e.target.value; update(); });
+document.getElementById('headline').addEventListener('input',e=>{ state.headline=e.target.value; update(); });
+document.getElementById('price').addEventListener('input',e=>{ state.price=e.target.value; update(); });
+
+document.querySelectorAll('#paletteChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#paletteChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.bg=c.dataset.bg; state.text=c.dataset.text; update();
+}));
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+update();
+</script>
+</body>
+</html>

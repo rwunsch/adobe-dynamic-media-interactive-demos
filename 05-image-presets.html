@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Presets — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+<script src="js/assets.js"></script>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Named Image Presets</div>
+    <h1>One stable name, one place to change the rules</h1>
+    <p>An <b>Image Preset</b> is a named bundle of rendering rules — size, quality, format, colour
+       operations — stored centrally on the tenant. Marketers reference the short name; the expanded
+       recipe lives in one place and can be re-tuned without touching a single page. These are
+       <b>real presets configured on the RobertCo tenant</b> — no longer a concept. Pick an asset
+       and a preset and watch the named recipe deliver live.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <div id="picker"></div>
+        <p class="hint" style="margin-top:14px">One uploaded master. Every preset below is applied
+           to whichever asset you pick — zero pre-baked derivatives.</p>
+      </div>
+
+      <div class="card">
+        <h2>Image preset</h2>
+        <div class="chips" id="presetChips"></div>
+        <p class="hint" style="margin-top:14px">Each chip is a real preset on the Image-Serving
+           tenant. Selecting it appends
+           <span style="font-family:var(--mono);color:#7fd6ff">?$name$</span> — that single token
+           expands server-side into the full recipe shown below.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why a name, not a URL</h2>
+        <p class="hint" style="margin-top:0">A marketer drops <b>one token</b> into a page. The
+          rendering rules are owned by the brand / ops team in one place. Re-tune the recipe centrally
+          and every consuming surface re-renders — no code change, no re-export, no stale derivatives.</p>
+        <div style="margin-top:14px">
+          <span class="badge green">Governed centrally</span>
+          <span class="badge blue" style="margin-left:6px">Self-describing</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="img" alt="Dynamic Media preset render"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Preset</div><div class="m-val" id="mName" style="font-size:18px">—</div></div>
+        <div class="metric"><div class="m-label">Delivered size</div><div class="m-val" id="mBytes">—</div></div>
+        <div class="metric"><div class="m-label">Pixel dimensions</div><div class="m-val" id="mDim">—</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>How a marketer references it</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+
+      <div class="urlbar" style="margin-top:16px">
+        <div class="label-row">
+          <span>The recipe this name encapsulates</span>
+          <span class="badge blue">Server-side</span>
+        </div>
+        <div class="url" id="recipe"></div>
+      </div>
+
+      <p class="hint">Governance in one line: change the recipe behind <b id="hintName">a preset</b>
+         once on the tenant and <b>every</b> page that references the name updates — no re-export,
+         no re-deploy, no broken links. The name is the contract; the rules are centralized.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// REAL presets configured on the RobertCo tenant, curated + friendly-labelled.
+// `recipe` = the expanded modifier string the named preset encapsulates server-side.
+const PRESETS = [
+  {name:'hero-desktop',    label:'Hero — desktop (16:9)', recipe:'wid=1600&hei=900&fit=crop&qlt=85&resmode=sharp2&op_usm=0.8,1,8,0&fmt=jpeg'},
+  {name:'hero-mobile',     label:'Hero — mobile (4:5)',   recipe:'wid=800&hei=1000&fit=crop&qlt=80&resmode=sharp2&fmt=jpeg'},
+  {name:'product-card',    label:'Product card (1:1)',    recipe:'wid=600&hei=600&fit=crop&qlt=82&resmode=sharp2&op_usm=1,1,6,0&fmt=jpeg'},
+  {name:'thumbnail',       label:'Thumbnail (160²)',      recipe:'wid=160&hei=160&fit=crop&qlt=72&resmode=sharp2&fmt=jpeg'},
+  {name:'zoom-2000',       label:'Zoom source (2000px)',  recipe:'wid=2000&hei=2000&fit=constrain&qlt=90&resmode=sharp2&op_usm=1.2,1,8,0&fmt=jpeg'},
+  {name:'social-1200x630', label:'Social / OG (1.91:1)',  recipe:'wid=1200&hei=630&fit=crop&qlt=80&resmode=sharp2&fmt=jpeg'},
+  {name:'email-600x240',   label:'Email banner (2.5:1)',  recipe:'wid=600&hei=240&fit=crop&qlt=78&resmode=sharp2&fmt=jpeg'},
+];
+
+const state = { preset: PRESETS[0] };
+
+function buildUrl(){
+  return DMAssets.imageBase(DMAssets.current()) + '?$' + state.preset.name + '$';
+}
+
+function renderUrlHtml(){
+  const a = DMAssets.current();
+  const base = DMAssets.imageBase(a);
+  // split the base into host + path for colouring
+  const m = base.match(/^(https?:\/\/[^/]+)(\/.*)$/);
+  const host = m ? m[1] : base, path = m ? m[2] : '';
+  return '<span class="host">'+host+'</span>'
+       + '<span class="path">'+path+'</span>'
+       + '<span class="q">?</span>'
+       + '<span class="k">$'+state.preset.name+'$</span>';
+}
+
+function renderRecipeHtml(){
+  // colour the expanded recipe exactly like a normal query string
+  return state.preset.recipe.split('&').map((p,i)=>{
+    const amp = i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>';
+    const eq  = p.indexOf('=');
+    if(eq < 0) return amp + '<span class="k">'+p+'</span>';
+    const k = p.slice(0,eq), v = p.slice(eq+1);
+    return amp + '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  }).join('');
+}
+
+function update(){
+  const url = buildUrl();
+  document.getElementById('url').innerHTML = renderUrlHtml();
+  document.getElementById('recipe').innerHTML = renderRecipeHtml();
+  document.getElementById('mName').textContent = state.preset.label;
+  document.getElementById('hintName').textContent = '$'+state.preset.name+'$';
+  document.getElementById('mBytes').textContent = '…';
+  document.getElementById('mDim').textContent = '…';
+
+  const img = document.getElementById('img');
+  fetch(url, {cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    img.src = URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent = (b.size/1024).toFixed(1)+' KB';
+    img.onload = ()=> {
+      document.getElementById('mDim').textContent = img.naturalWidth+'×'+img.naturalHeight;
+    };
+  }).catch(()=>{ img.src = url; });
+}
+
+/* ---- shared asset picker ---- */
+DMAssets.mountPicker(document.getElementById('picker'), () => update());
+
+/* ---- preset chips ---- */
+const presetWrap = document.getElementById('presetChips');
+PRESETS.forEach((p,i)=>{
+  const c=document.createElement('span');
+  c.className='chip'+(i===0?' active':''); c.textContent=p.label;
+  c.title='$'+p.name+'$';
+  c.addEventListener('click',()=>{
+    presetWrap.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active'); state.preset=p; update();
+  });
+  presetWrap.appendChild(c);
+});
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+update();
+</script>
+</body>
+</html>

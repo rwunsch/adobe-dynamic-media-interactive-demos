@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parameterized Template — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Parameterized templates</div>
+    <h1>One template, every variant — by URL</h1>
+    <p>A designer builds the template <b>once</b>: layout, fonts, a stack of layers, and named parameters.
+       After that, marketing (or an automated feed) produces unlimited variants purely through URL
+       parameters — swap the headline, toggle which scene layer is visible. No new files, no Photoshop.
+       This is a real template on the tenant: <code style="font-family:var(--mono)">DMS7-Bunny-S7</code>.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Headline</h2>
+        <div class="ctrl">
+          <label>Text <span style="color:var(--muted-2);font-weight:400">(Enter = new line)</span></label>
+          <textarea id="headline" rows="3" style="width:100%;background:var(--bg-deep);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-family:'Adobe Clean',sans-serif;font-size:14px;resize:vertical">Christmas
+meets the Easter Bunny</textarea>
+        </div>
+        <div class="ctrl switch" style="margin-bottom:0">
+          <label style="margin:0;width:100%;display:flex;justify-content:space-between;align-items:center">
+            <span style="color:#e8e8e8;font-weight:600;font-size:13px">Show headline</span>
+            <span><input type="checkbox" id="showText" checked><span class="track"></span></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Scene layer</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="seg" id="sceneSeg">
+            <button data-v="mountain" class="active">Mountain</button>
+            <button data-v="forest">Winter forest</button>
+            <button data-v="beach">Beach</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:14px">Each scene is a layer in the template, shown or hidden by a
+           parameter. The bunny and the base scene stay; the overlay swaps.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why templates</h2>
+        <p class="hint" style="margin-top:0">The template encapsulates the design (the bunny, the fonts,
+          the layer stack, positioning). Consumers only supply <b>data</b> —
+          <code style="font-family:var(--mono)">$text</code> and the
+          <code style="font-family:var(--mono)">*_vis</code> toggles. Generate thousands of localized /
+          seasonal creatives from one source of truth.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage"><img id="out" alt="template render"></div>
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Template</div><div class="m-val" style="font-size:15px">DMS7-Bunny-S7</div></div>
+        <div class="metric"><div class="m-label">Layers</div><div class="m-val" style="font-size:15px">bunny · scene · text</div></div>
+        <div class="metric"><div class="m-label">Delivered</div><div class="m-val" id="mBytes" style="font-size:18px">—</div></div>
+      </div>
+      <div class="urlbar">
+        <div class="label-row"><span>Live template URL (parameters only)</span>
+          <button class="copy-btn" id="copy">Copy URL</button></div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">The <code style="font-family:var(--mono)">*_vis</code> params map to the layers'
+        <code style="font-family:var(--mono)">hide</code> flag, so <b>0 = show, 1 = hide</b> (the template
+        author's wiring). <code style="font-family:var(--mono)">$cr-text</code> accepts
+        <code style="font-family:var(--mono)">\par</code> for line breaks — the styling (Adobe Clean
+        ExtraBold) lives in the template, not the URL.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOST='s7g10.scene7.com';
+const PATH='/is/image/RobertCo/DMS7-Bunny-S7';
+const BASE='https://'+HOST+PATH;
+const W=620;
+
+const state={ headline:'Christmas\nmeets the Easter Bunny', showText:true, scene:'mountain' };
+
+// user newlines -> RTF \par ; the template inserts $text into its own styled RTF
+function textParam(){
+  return state.headline.split('\n').map(s=>s.trim()).filter(Boolean).join(' \\par ');
+}
+function visFlags(){
+  // *_vis is a hide flag: 0 = show, 1 = hide
+  return {
+    text: state.showText ? 0 : 1,
+    forest: state.scene==='forest' ? 0 : 1,
+    beach:  state.scene==='beach'  ? 0 : 1,
+  };
+}
+function buildUrl(){
+  const v=visFlags();
+  return `${BASE}?$cr-text=${encodeURIComponent(textParam())}`
+    + `&$text_vis=${v.text}&$beach_vis=${v.beach}&$winter_forest_vis=${v.forest}&wid=${W}`;
+}
+function renderUrlHtml(){
+  const v=visFlags();
+  const t=textParam().replace(/</g,'&lt;');
+  return '<span class="host">https://'+HOST+'</span><span class="path">'+PATH+'</span>'
+    +'<span class="q">?</span><span class="k">$cr-text</span>=<span class="v">'+t+'</span>'
+    +'<span class="amp">&amp;</span><span class="k">$text_vis</span>=<span class="v">'+v.text+'</span>'
+    +'<span class="amp">&amp;</span><span class="k">$beach_vis</span>=<span class="v">'+v.beach+'</span>'
+    +'<span class="amp">&amp;</span><span class="k">$winter_forest_vis</span>=<span class="v">'+v.forest+'</span>'
+    +'<span class="amp">&amp;</span><span class="k">wid</span>=<span class="v">'+W+'</span>';
+}
+let token=0;
+function update(){
+  document.getElementById('url').innerHTML=renderUrlHtml();
+  const my=++token, out=document.getElementById('out');
+  fetch(buildUrl(),{cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    if(my!==token) return;                 // ignore stale responses from rapid edits
+    out.src=URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent=(b.size/1024).toFixed(0)+' KB';
+  }).catch(()=>{ if(my===token) out.src=buildUrl(); });
+}
+
+document.getElementById('headline').addEventListener('input',e=>{ state.headline=e.target.value; update(); });
+document.getElementById('showText').addEventListener('change',e=>{ state.showText=e.target.checked; update(); });
+document.querySelectorAll('#sceneSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#sceneSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); state.scene=b.dataset.v; update();
+}));
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+update();
+</script>
+</body>
+</html>

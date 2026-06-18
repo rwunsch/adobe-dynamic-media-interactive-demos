@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Viewers — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Interactive HTML5 Viewers</div>
+    <h1>One upload, an interactive experience — no app to build.</h1>
+    <p>Dynamic Media ships a family of ready-made <b>HTML5 viewers</b>: 360° spin, deep zoom,
+       mixed media (images + video in one carousel), and shoppable hotspots. You assemble a set
+       in DM and reference it with a <b>single asset URL</b> — Adobe hosts the viewer, streams the
+       frames from the same Scene7 CDN, and runs the interaction. There is no SDK to integrate and
+       no front-end to maintain. Pick a viewer below and the live experience reloads in place.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Choose a viewer</h2>
+        <div class="ctrl">
+          <div class="seg" id="viewerSeg">
+            <button class="active" data-type="spin">Spin set</button>
+            <button data-type="mixed">Mixed media</button>
+            <button data-type="imageset">Image set</button>
+            <button data-type="zoom">Inline zoom</button>
+            <button data-type="shoppable">Shoppable</button>
+          </div>
+        </div>
+        <p class="hint" id="blurb" style="margin-top:14px"></p>
+      </div>
+
+      <div class="card">
+        <h2>What you upload</h2>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Spin set</span>
+          <span class="hint" style="margin:0 0 0 8px">A ring of frames — drag to rotate 360°</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Mixed media</span>
+          <span class="hint" style="margin:0 0 0 8px">Images + video in one swatch carousel</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Image set</span>
+          <span class="hint" style="margin:0 0 0 8px">Alternate angles a shopper can flip through</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Inline zoom</span>
+          <span class="hint" style="margin:0 0 0 8px">Hover/pinch to inspect detail on the fly</span></div>
+        <div class="ctrl" style="margin-bottom:0"><span class="badge blue">Shoppable</span>
+          <span class="hint" style="margin:0 0 0 8px">Hotspots on an image link out to products</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Why it matters</h2>
+        <p class="hint" style="margin-top:0">
+          Every experience here is the <b>same pattern</b>: a hosted viewer
+          (<code>/s7viewers/html5/…</code>), an <b>asset</b> (a single image, a set, or a spin
+          ring) and an optional <b>config</b> preset that controls the look. You author once in DM
+          and embed the same URL on a PDP, in an email, or in an app — all served and cached from
+          one CDN. No 360 plugin, no zoom tiler, no carousel library to ship or patch.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage" style="padding:0; min-height:0; background:#fff;">
+        <div style="position:relative; width:100%; padding-top:100%;">
+          <iframe id="viewer" title="Adobe Dynamic Media Interactive Viewer"
+                  style="position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:14px; display:block; background:#fff;"
+                  allow="fullscreen; autoplay; encrypted-media; accelerometer; gyroscope" allowfullscreen></iframe>
+        </div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span id="urlLabel">Live Spin Viewer embed URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">The <code>asset</code> is the set or image on the tenant, <code>config</code>
+         is the viewer preset (look &amp; behaviour), and <code>serverurl</code> /
+         <code>contenturl</code> are the same image- and binary-delivery endpoints that serve every
+         other Dynamic Media asset. Swap the viewer and the asset — the embed pattern never changes.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const HOST = 'https://s7d1.scene7.com';
+const SERVER = HOST + '/is/image/';
+const CONTENT = HOST + '/is/content/';
+
+// Adobe's public "Viewers" demo company — every URL below is curl-verified HTTP 200.
+const VIEWERS = {
+  spin: {
+    viewer: 'SpinViewer',
+    asset: 'Viewers/kitchenaid-spin-set',
+    config: 'Viewers/SpinSet_light',
+    label: 'Spin Viewer',
+    blurb: 'A 32-frame spin set delivered as one 360° experience. Drag left/right to rotate the product; the viewer requests frames on demand from the CDN.'
+  },
+  mixed: {
+    viewer: 'MixedMediaViewer',
+    asset: 'Viewers/modernloungermixedmediaset',
+    config: 'Viewers/MixedMedia_light',
+    label: 'Mixed Media Viewer',
+    blurb: 'A 20-item set mixing images and video in one swatch carousel. Click a thumbnail to switch media; video plays inline, stills support zoom — all from one asset.'
+  },
+  imageset: {
+    viewer: 'MixedMediaViewer',
+    asset: 'Viewers/clockimageset',
+    config: 'Viewers/ImageSet_light',
+    label: 'Image Set Viewer',
+    blurb: 'A 3-item image set — alternate angles a shopper flips through with the thumbnail strip. (Adobe folds the classic image-set experience into the Mixed Media viewer.)'
+  },
+  zoom: {
+    viewer: 'ZoomViewer',
+    asset: 'Viewers/mug_inline_zoom',
+    config: '',
+    label: 'Zoom Viewer',
+    blurb: 'Inline zoom: hover or pinch to inspect fine detail. Tiles are generated on the fly from the master — no deep-zoom copies to author or store.'
+  },
+  shoppable: {
+    viewer: 'InteractiveImage',
+    asset: 'Viewers/05_shoppable_banner',
+    config: 'Viewers/Shoppable_Banner_Plus_Sign',
+    label: 'Interactive Image (Shoppable) Viewer',
+    blurb: 'A shoppable banner: hotspots placed on the image surface a product callout and link out — turning a single hero image into a clickable storefront.'
+  }
+};
+
+function parts(v){
+  const p = [['asset', v.asset]];
+  if (v.config) p.push(['config', v.config]);
+  p.push(['serverurl', SERVER]);
+  p.push(['contenturl', CONTENT]);
+  return p;
+}
+
+function buildUrl(v){
+  const path = '/s7viewers/html5/' + v.viewer + '.html';
+  return HOST + path + '?' + parts(v).map(([k,val]) => k + '=' + encodeURIComponent(val)).join('&');
+}
+
+function renderUrlHtml(v){
+  const path = '/s7viewers/html5/' + v.viewer + '.html';
+  let html = '<span class="host">' + HOST + '</span>'
+           + '<span class="path">' + path + '</span>';
+  parts(v).forEach(([k,val],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+val+'</span>';
+  });
+  return html;
+}
+
+let currentType = 'spin';
+
+function load(type){
+  currentType = type;
+  const v = VIEWERS[type];
+  document.getElementById('viewer').src = buildUrl(v);
+  document.getElementById('url').innerHTML = renderUrlHtml(v);
+  document.getElementById('urlLabel').textContent = 'Live ' + v.label + ' embed URL';
+  document.getElementById('blurb').textContent = v.blurb;
+}
+
+document.querySelectorAll('#viewerSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#viewerSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  load(b.dataset.type);
+}));
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl(VIEWERS[currentType]));
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+load(currentType);
+</script>
+</body>
+</html>

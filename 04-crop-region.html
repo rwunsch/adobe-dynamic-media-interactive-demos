@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Crop &amp; Region — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Server-side cropping</div>
+    <h1>Draw a region, get a URL</h1>
+    <p>Drag a rectangle anywhere on the master below. Dynamic Media turns it into a
+       <code style="font-family:var(--mono);color:#7fd6ff">crop=x,y,w,h</code> modifier — in the
+       <b>original&rsquo;s</b> pixel space (<span id="introDims">2973&nbsp;&times;&nbsp;4460</span>) — and renders the cut on the fly.
+       Nothing is pre-baked: the crop happens at the edge and the unique URL is cached, so the
+       second viewer pays nothing.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+
+      <div class="card">
+        <h2>Master &mdash; drag to crop</h2>
+        <div class="stage" id="masterStage" style="min-height:auto;padding:12px;cursor:crosshair;position:relative;user-select:none">
+          <img id="master" alt="master" draggable="false"
+               style="touch-action:none">
+          <div id="sel" style="position:absolute;border:2px solid var(--adobe-red);
+               background:rgba(235,16,0,.18);display:none;pointer-events:none;border-radius:2px"></div>
+          <div id="selLabel" style="position:absolute;display:none;font:600 11px/1.5 system-ui,sans-serif;background:rgba(0,0,0,.78);color:#fff;padding:1px 6px;border-radius:3px;pointer-events:none;white-space:nowrap;z-index:6"></div>
+        </div>
+        <p class="hint" style="margin-top:12px"><span id="hintDims">2973&nbsp;&times;&nbsp;4460</span> native original. Drag a box on it —
+           coordinates are scaled back to native pixels.</p>
+      </div>
+
+      <div class="card">
+        <h2>Preset regions</h2>
+        <div class="ctrl">
+          <div class="chips" id="presetChips">
+            <span class="chip active" data-preset="full">Full</span>
+            <span class="chip" data-preset="face">Face</span>
+            <span class="chip" data-preset="upper">Upper body</span>
+            <span class="chip" data-preset="lower">Lower third</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Delivery</h2>
+        <div class="ctrl">
+          <label>Fit mode</label>
+          <div class="seg" id="fitSeg">
+            <button data-v="constrain" class="active">constrain</button>
+            <button data-v="crop">crop</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <label>Delivered width <span class="val" id="widV">600</span></label>
+          <input type="range" id="wid" min="120" max="1200" step="20" value="600">
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="out" alt="Cropped render"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Crop (orig px)</div><div class="m-val" id="mCrop" style="font-size:18px">—</div></div>
+        <div class="metric"><div class="m-label">Aspect ratio</div><div class="m-val" id="mRatio" style="font-size:18px">—</div></div>
+        <div class="metric"><div class="m-label">Delivered size</div><div class="m-val" id="mDim" style="font-size:18px">—</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live image-serving URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">The <b>crop</b> modifier is <code style="font-family:var(--mono)">x,y,w,h</code> in
+         the master&rsquo;s coordinate system. <b>fit=constrain</b> fits the crop inside the requested width;
+         <b>fit=crop</b> fills it exactly. Each distinct URL is rendered once, then served from cache.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+let asset = DMAssets.current();
+let BASE  = DMAssets.imageBase(asset);
+let HOST, PATH;
+function splitBase(){
+  const m = BASE.match(/^https?:\/\/([^/]+)(\/.*)$/);
+  HOST = m ? m[1] : '';
+  PATH = m ? m[2] : BASE;
+}
+splitBase();
+
+// crop= operates in the asset's NATIVE pixel space — taken from the selected asset's w/h.
+let ORIG_W = asset.w, ORIG_H = asset.h;
+
+let PRESETS;
+function buildPresets(){
+  // expressed as fractions of the native size so they're meaningful for any image
+  PRESETS = {
+    full:  [0, 0, ORIG_W, ORIG_H],
+    face:  [Math.round(ORIG_W*0.35), Math.round(ORIG_H*0.17), Math.round(ORIG_W*0.39), Math.round(ORIG_W*0.39)],
+    upper: [Math.round(ORIG_W*0.10), Math.round(ORIG_H*0.13), Math.round(ORIG_W*0.80), Math.round(ORIG_H*0.61)],
+    lower: [0, Math.round(ORIG_H*0.67), ORIG_W, Math.round(ORIG_H*0.33)]
+  };
+}
+buildPresets();
+
+const state = {
+  crop: PRESETS.full.slice(),  // [x,y,w,h] in original px
+  fit: 'constrain',
+  wid: 600
+};
+
+const masterImg = document.getElementById('master');
+const masterStage = document.getElementById('masterStage');
+const sel = document.getElementById('sel');
+const selLabel = document.getElementById('selLabel');
+function showSelLabel(nativeW, nativeH, boxLeft, boxTop){
+  selLabel.textContent = Math.round(nativeW) + ' \u00d7 ' + Math.round(nativeH) + ' px';
+  selLabel.style.display = 'block';
+  let ly = boxTop - 17;
+  if (ly < 2) ly = boxTop + 3;              // near top edge -> drop just inside
+  selLabel.style.left = (boxLeft + 1) + 'px';
+  selLabel.style.top  = ly + 'px';
+}
+function hideSelLabel(){ selLabel.style.display = 'none'; }
+
+// ---- modifier list ----
+function isFull(){
+  const [x,y,w,h] = state.crop;
+  return x===0 && y===0 && w===ORIG_W && h===ORIG_H;
+}
+function params(){
+  const p = [];
+  if (!isFull()) p.push(['crop', state.crop.map(Math.round).join(',')]);
+  p.push(['wid', state.wid]);
+  p.push(['fit', state.fit]);
+  return p;
+}
+function buildUrl(){
+  const q = params().map(([k,v]) => k+'='+v).join('&');
+  return BASE + (q ? '?' + q : '');
+}
+function renderUrlHtml(){
+  const q = params();
+  let html = '<span class="host">https://'+HOST+'</span><span class="path">'+PATH+'</span>';
+  q.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  });
+  return html;
+}
+
+function gcd(a,b){ return b ? gcd(b, a%b) : a; }
+function ratioStr(w,h){
+  w = Math.round(w); h = Math.round(h);
+  const g = gcd(w,h) || 1;
+  return (w/g)+':'+(h/g);
+}
+
+function update(){
+  document.getElementById('url').innerHTML = renderUrlHtml();
+  const [x,y,w,h] = state.crop.map(Math.round);
+  document.getElementById('mCrop').textContent = isFull() ? 'none (full)' : `${w}×${h} @ ${x},${y}`;
+  document.getElementById('mRatio').textContent = ratioStr(w,h);
+
+  const out = document.getElementById('out');
+  out.onload = ()=>{ document.getElementById('mDim').textContent = out.naturalWidth+'×'+out.naturalHeight; };
+  out.src = buildUrl();
+
+  drawSelFromState();
+}
+
+// ---- selection overlay <-> state ----
+function dispScale(){
+  // master rendered width on screen vs original
+  const rect = masterImg.getBoundingClientRect();
+  return { rect, sx: rect.width / ORIG_W, sy: rect.height / ORIG_H };
+}
+function drawSelFromState(){
+  if (isFull()){ sel.style.display = 'none'; hideSelLabel(); return; }
+  const { sx, sy } = dispScale();
+  // offset of the img inside the stage (padding)
+  const left = masterImg.offsetLeft, top = masterImg.offsetTop;
+  const [x,y,w,h] = state.crop;
+  sel.style.display = 'block';
+  sel.style.left   = (left + x*sx) + 'px';
+  sel.style.top    = (top  + y*sy) + 'px';
+  sel.style.width  = (w*sx) + 'px';
+  sel.style.height = (h*sy) + 'px';
+  showSelLabel(w, h, left + x*sx, top + y*sy);   // native w/h from state
+}
+
+// ---- drag to draw ----
+let dragging = false, startX = 0, startY = 0;
+function imgLocal(e){
+  const rect = masterImg.getBoundingClientRect();
+  let cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  let cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  cx = Math.max(0, Math.min(rect.width,  cx));
+  cy = Math.max(0, Math.min(rect.height, cy));
+  return { cx, cy, rect };
+}
+function onDown(e){
+  e.preventDefault();
+  dragging = true;
+  const { cx, cy } = imgLocal(e);
+  startX = cx; startY = cy;
+}
+function onMove(e){
+  if (!dragging) return;
+  e.preventDefault();
+  const { cx, cy, rect } = imgLocal(e);
+  const left = masterImg.offsetLeft, top = masterImg.offsetTop;
+  const x = Math.min(startX, cx), y = Math.min(startY, cy);
+  const w = Math.abs(cx - startX), h = Math.abs(cy - startY);
+  sel.style.display = 'block';
+  sel.style.left = (left + x) + 'px'; sel.style.top = (top + y) + 'px';
+  sel.style.width = w + 'px'; sel.style.height = h + 'px';
+  const { sx, sy } = dispScale();
+  showSelLabel(w / sx, h / sy, left + x, top + y);   // show native px live
+}
+function onUp(e){
+  if (!dragging) return;
+  dragging = false;
+  const w = parseFloat(sel.style.width)  || 0;
+  const h = parseFloat(sel.style.height) || 0;
+  if (w < 8 || h < 8){ // treat as a click -> ignore tiny selections
+    update(); return;
+  }
+  const { sx, sy, rect } = dispScale();
+  const left = masterImg.offsetLeft, top = masterImg.offsetTop;
+  const dispX = (parseFloat(sel.style.left) - left);
+  const dispY = (parseFloat(sel.style.top)  - top);
+  state.crop = [
+    Math.max(0, dispX / sx),
+    Math.max(0, dispY / sy),
+    Math.min(ORIG_W, w / sx),
+    Math.min(ORIG_H, h / sy)
+  ];
+  // clear preset highlight (custom region)
+  document.querySelectorAll('#presetChips .chip').forEach(x=>x.classList.remove('active'));
+  update();
+}
+
+masterStage.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+masterStage.addEventListener('touchstart', onDown, {passive:false});
+masterStage.addEventListener('touchmove', onMove, {passive:false});
+masterStage.addEventListener('touchend', onUp);
+
+// ---- controls ----
+document.getElementById('wid').addEventListener('input', e=>{
+  state.wid = +e.target.value;
+  document.getElementById('widV').textContent = e.target.value;
+  update();
+});
+document.querySelectorAll('#fitSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#fitSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); state.fit = b.dataset.v; update();
+}));
+document.querySelectorAll('#presetChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#presetChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  state.crop = PRESETS[c.dataset.preset].slice();
+  update();
+}));
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+// keep the overlay aligned when the master finishes loading or the window resizes
+masterImg.addEventListener('load', drawSelFromState);
+window.addEventListener('resize', drawSelFromState);
+
+// ---- apply the selected asset (initial + on picker change) ----
+function dimsHtml(){ return ORIG_W + '&nbsp;&times;&nbsp;' + ORIG_H; }
+function applyAsset(a){
+  asset = a;
+  BASE = DMAssets.imageBase(asset);
+  splitBase();
+  ORIG_W = asset.w; ORIG_H = asset.h;
+  buildPresets();
+  // reset to full crop for the new image's coordinate space
+  state.crop = PRESETS.full.slice();
+  document.querySelectorAll('#presetChips .chip').forEach(x=>x.classList.remove('active'));
+  document.querySelector('#presetChips .chip[data-preset="full"]').classList.add('active');
+  document.getElementById('introDims').innerHTML = dimsHtml();
+  document.getElementById('hintDims').innerHTML  = dimsHtml();
+  masterImg.src = BASE + '?wid=360';
+  update();
+}
+
+DMAssets.mountPicker(document.getElementById('picker'), applyAsset);
+
+applyAsset(asset);
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

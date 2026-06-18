@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Segment-Driven Campaigns — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Templating &amp; personalization</div>
+    <h1>One template, a different banner per segment</h1>
+    <p>The designer builds <b>one</b> layered template with named <b>visibility</b> and <b>text</b>
+       variables. Marketing then defines a small <b>bundle of parameters per audience segment</b> —
+       which layers show, what the headline says. The same template URL renders a tailored creative for
+       each segment, driven entirely by data. No new files, no Photoshop round-trip. This runs live on the
+       real tenant template <code style="font-family:var(--mono)">DMS7-Bunny-S7</code>.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Audience segment</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="seg" id="segSeg"></div>
+        </div>
+        <p class="hint" style="margin-top:14px">Each button is a saved <b>segment recipe</b> — a bundle of
+          parameter values. In production these come from your campaign feed or CDP, one row per segment.</p>
+      </div>
+
+      <div class="card">
+        <h2>Headline for this segment</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Text <span style="color:var(--muted-2);font-weight:400">(Enter = new line)</span></label>
+          <textarea id="headline" rows="3" style="width:100%;background:var(--bg-deep);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-family:'Adobe Clean',sans-serif;font-size:14px;resize:vertical"></textarea>
+        </div>
+        <p class="hint" style="margin-top:12px">The headline is just another segment variable
+          (<code style="font-family:var(--mono)">$cr-text</code>). Edit it to see this segment update live.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why segment templating</h2>
+        <p class="hint" style="margin-top:0">The <b>design</b> (layout, fonts, the layer stack, positions)
+          is authored once and frozen in the template. The <b>data</b> (which scene, which headline) is a
+          tiny per-segment payload. Swap the payload &rarr; new creative. Scale to thousands of
+          localized / seasonal / audience variants from a single source of truth.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage"><img id="out" alt="segment render"></div>
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Template</div><div class="m-val" style="font-size:15px">DMS7-Bunny-S7</div></div>
+        <div class="metric"><div class="m-label">Segment</div><div class="m-val" id="mSeg" style="font-size:15px">—</div></div>
+        <div class="metric"><div class="m-label">Delivered</div><div class="m-val" id="mBytes" style="font-size:18px">—</div></div>
+      </div>
+      <div class="urlbar">
+        <div class="label-row"><span>Live template URL — only the data changes per segment</span>
+          <button class="copy-btn" id="copy">Copy URL</button></div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">Parameters that <b style="color:var(--adobe-red)">differ from the Default segment</b>
+        are highlighted. <code style="font-family:var(--mono)">*_vis</code> is the layer's
+        <code style="font-family:var(--mono)">hide</code> flag — <b>0 = show, 1 = hide</b>.</p>
+    </div>
+  </div>
+
+  <div style="border-left:6px solid var(--adobe-red);padding-left:16px;margin:34px 0 16px">
+    <h2 style="font-size:20px;font-weight:800;margin:2px 0 4px">Every segment, side by side</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0;max-width:820px">One template, three audiences,
+      three live renders. Under each, the exact parameter bundle that produced it — the values that
+      <b style="color:var(--adobe-red)">differ from Default</b> are highlighted. This is the whole
+      personalization story on one screen.</p>
+  </div>
+  <div class="grid" id="grid" style="grid-template-columns:repeat(3,1fr)"></div>
+</div>
+
+<script>
+const HOST='s7g10.scene7.com';
+const PATH='/is/image/RobertCo/DMS7-Bunny-S7';
+const BASE='https://'+HOST+PATH;
+const W=620;
+
+// Each segment is a data payload. scene drives the *_vis layer toggles; headline drives $cr-text.
+// scene: 'mountain' = base only, 'forest' = winter-forest layer, 'beach' = beach layer.
+const SEGMENTS=[
+  {id:'default', name:'Default',         scene:'mountain', showText:true,  headline:'Adventure\nawaits'},
+  {id:'winter',  name:'Winter campaign', scene:'forest',   showText:true,  headline:'Winter\nis here'},
+  {id:'summer',  name:'Summer campaign', scene:'beach',    showText:true,  headline:'Escape to\nthe beach'},
+];
+const DEFAULT=SEGMENTS[0];
+let active=JSON.parse(JSON.stringify(DEFAULT));   // working copy (headline editable)
+
+function textParam(h){ return h.split('\n').map(s=>s.trim()).filter(Boolean).join(' \\par '); }
+function visFlags(seg){            // *_vis is a hide flag: 0 = show, 1 = hide
+  return {
+    text:   seg.showText ? 0 : 1,
+    forest: seg.scene==='forest' ? 0 : 1,
+    beach:  seg.scene==='beach'  ? 0 : 1,
+  };
+}
+function params(seg){
+  const v=visFlags(seg);
+  return [
+    ['$cr-text',          textParam(seg.headline)],
+    ['$text_vis',         v.text],
+    ['$beach_vis',        v.beach],
+    ['$winter_forest_vis',v.forest],
+  ];
+}
+function buildUrl(seg){
+  const p=params(seg).map(([k,val])=>k+'='+encodeURIComponent(val)).join('&');
+  return BASE+'?'+p+'&wid='+W;
+}
+// which params differ from the Default segment's values?
+function diffSet(seg){
+  const base=Object.fromEntries(params(DEFAULT));
+  const set=new Set();
+  params(seg).forEach(([k,val])=>{ if(String(val)!==String(base[k])) set.add(k); });
+  return set;
+}
+function urlHtml(seg){
+  const diff=diffSet(seg);
+  let h='<span class="host">https://'+HOST+'</span><span class="path">'+PATH+'</span><span class="q">?</span>';
+  params(seg).forEach(([k,val],i)=>{
+    const changed=diff.has(k);
+    const kc=changed?' style="color:var(--adobe-red);font-weight:700"':'';
+    const vc=changed?' style="color:var(--adobe-red);font-weight:700"':'';
+    if(i) h+='<span class="amp">&amp;</span>';
+    h+='<span class="k"'+kc+'>'+k+'</span>=<span class="v"'+vc+'>'+String(val).replace(/</g,'&lt;')+'</span>';
+  });
+  h+='<span class="amp">&amp;</span><span class="k">wid</span>=<span class="v">'+W+'</span>';
+  return h;
+}
+
+let token=0;
+function update(){
+  document.getElementById('mSeg').textContent=active.name;
+  document.getElementById('url').innerHTML=urlHtml(active);
+  const my=++token, out=document.getElementById('out');
+  fetch(buildUrl(active),{cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    if(my!==token) return;
+    out.src=URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent=(b.size/1024).toFixed(0)+' KB';
+  }).catch(()=>{ if(my===token) out.src=buildUrl(active); });
+}
+
+// segment switcher
+const segSeg=document.getElementById('segSeg');
+SEGMENTS.forEach((s,i)=>{
+  const b=document.createElement('button'); b.textContent=s.name; b.dataset.id=s.id;
+  if(i===0) b.classList.add('active');
+  b.addEventListener('click',()=>{
+    segSeg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    active=JSON.parse(JSON.stringify(SEGMENTS.find(x=>x.id===s.id)));
+    document.getElementById('headline').value=active.headline;
+    update();
+  });
+  segSeg.appendChild(b);
+});
+document.getElementById('headline').value=active.headline;
+document.getElementById('headline').addEventListener('input',e=>{ active.headline=e.target.value; update(); });
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl(active));
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+// side-by-side gallery — every segment with its param bundle
+const grid=document.getElementById('grid');
+SEGMENTS.forEach(seg=>{
+  const diff=diffSet(seg);
+  const rows=params(seg).map(([k,val])=>{
+    const ch=diff.has(k);
+    const style=ch?'color:var(--adobe-red);font-weight:700':'color:var(--muted)';
+    const disp=String(val).length>22?String(val).slice(0,22)+'…':String(val);
+    return '<div style="'+style+'"><span style="font-family:var(--mono)">'+k+'</span>=<span style="font-family:var(--mono)">'+disp.replace(/</g,'&lt;')+'</span></div>';
+  }).join('');
+  const t=document.createElement('div'); t.className='tile';
+  t.innerHTML='<div style="aspect-ratio:1/1.32;background:#222;overflow:hidden;display:flex;align-items:center;justify-content:center">'
+    +'<img alt="'+seg.name+'" style="width:100%;height:100%;object-fit:cover" src="'+buildUrl(seg)+'"></div>'
+    +'<div class="cap"><div class="t">'+seg.name+(seg.id==='default'?' <span class="badge">baseline</span>':'')+'</div>'
+    +'<div class="s" style="margin-top:8px;line-height:1.7;font-size:12px">'+rows+'</div></div>';
+  grid.appendChild(t);
+});
+
+update();
+</script>
+</body>
+</html>

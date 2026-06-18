@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset Metadata API — Dynamic Media OpenAPI</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Headless &amp; data</div>
+    <h1>One API for the <em>pixels</em> and the <em>data</em></h1>
+    <p>The same Dynamic Media OpenAPI that delivers the rendered image also returns the asset's
+       <b>metadata as JSON</b> — title, dimensions, format, size, review status — straight from AEM.
+       One governed endpoint, two payloads. No scraping, no separate DAM lookup, no second system.
+       Pick an asset and watch your browser fetch both the rendition <em>and</em> its live metadata.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <div id="picker">
+          <label style="display:block;font-size:13px;font-weight:600;margin-bottom:7px;color:#e8e8e8">
+            Asset <span style="color:#919191;font-weight:400">· approved &amp; published</span></label>
+          <div class="chips" id="assetChips" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Why this matters</h2>
+        <p class="hint" style="margin-top:0">
+          A front-end calls <b>one</b> Dynamic Media OpenAPI host. The <code style="font-family:var(--mono)">/as/…</code>
+          path streams the optimized image; the <code style="font-family:var(--mono)">/metadata</code> path returns the
+          governed field data as JSON. The response is <b>CORS-open</b>
+          (<code style="font-family:var(--mono)">access-control-allow-origin: *</code>), so an in-browser app can read it
+          directly.</p>
+        <p class="hint">This is the headless story: it powers <b>Content Hub</b>, dynamic galleries, product detail
+          pages and app integrations — pixels and field data from a <b>single, approval-gated source of truth</b>.</p>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="grid" style="grid-template-columns:minmax(0,360px) 1fr; align-items:start">
+        <!-- LEFT: delivered thumbnail -->
+        <div class="tile">
+          <div style="background:#222;aspect-ratio:3/2;display:flex;align-items:center;justify-content:center;overflow:hidden">
+            <img id="thumb" alt="delivered rendition" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="cap">
+            <div class="t">Delivered rendition <span class="badge blue">/as/img.jpg</span></div>
+            <div class="s">on-the-fly · <code style="font-family:var(--mono)">width=400</code></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: key-field card -->
+        <div class="card" style="padding:18px">
+          <h2 style="margin-bottom:14px">Key fields <span class="badge green" id="statusBadge" style="margin-left:6px">—</span></h2>
+          <table style="width:100%;border-collapse:collapse;font-size:13.5px;line-height:1.5">
+            <tbody id="fieldCard">
+              <tr><td style="padding:7px 8px 7px 0;color:var(--muted);width:42%">Title</td><td style="padding:7px 0" id="fTitle">—</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px 7px 0;color:var(--muted)">Format</td><td style="padding:7px 0;font-family:var(--mono)" id="fFormat">—</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px 7px 0;color:var(--muted)">Dimensions</td><td style="padding:7px 0;font-family:var(--mono)" id="fDim">—</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px 7px 0;color:var(--muted)">File size</td><td style="padding:7px 0;font-family:var(--mono)" id="fSize">—</td></tr>
+              <tr style="border-top:1px solid var(--border)"><td style="padding:7px 8px 7px 0;color:var(--muted)">Review status</td><td style="padding:7px 0" id="fStatus">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- metadata request URL -->
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Metadata request URL · returns JSON</span>
+          <button class="copy-btn" id="copyMeta">Copy URL</button>
+        </div>
+        <div class="url" id="metaUrl"></div>
+      </div>
+
+      <!-- raw JSON -->
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live metadata response</span>
+          <span class="badge blue" id="ctBadge" style="text-transform:none;letter-spacing:0">—</span>
+        </div>
+        <div class="url" id="metaJson" style="max-height:340px;overflow:auto;white-space:pre;line-height:1.55">Fetching…</div>
+      </div>
+
+      <p class="hint"><b>One OpenAPI endpoint</b> serves the image <i>and</i> its metadata. The card above is built
+        live from the JSON on the right — exactly what a headless front-end, a Content Hub tile, or a dynamic gallery
+        would do. No HTML scraping, no separate metadata service: the asset's governed data travels with its pixels.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Approved + published assets on the RobertCo tenant — each returns a rendition AND /metadata JSON. */
+const ASSETS = [
+  {name:'forest-trail',        label:'Forest trail',       uuid:'8c18286d-c218-4efc-aa07-35d846406079'},
+  {name:'surfing_2',           label:'Surfer',             uuid:'77ed958c-9433-471d-9b37-f770de400bf2'},
+  {name:'alpinists-himalayas', label:'Alpinists',          uuid:'921a99f7-421f-487b-87ef-0c2e16677ff4'},
+  {name:'ice-climbing',        label:'Ice climbing',       uuid:'868c2a49-c1a3-46e7-b606-a962534ba1fc'},
+  {name:'camp-summer-night',   label:'Camp summer night',  uuid:'77d670de-b9f5-4c71-aeff-70db1b49c4a1'},
+];
+
+const HOST = 'https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com';
+
+function assetRoot(a){ return `${HOST}/adobe/assets/urn:aaid:aem:${a.uuid}`; }
+function thumbUrl(a){ return `${assetRoot(a)}/as/img.jpg?width=400`; }
+function metaUrl(a){ return `${assetRoot(a)}/metadata`; }
+
+/* color-coded URL anatomy: host / path */
+function metaUrlHtml(a){
+  return '<span class="host">' + HOST + '</span>'
+    + '<span class="path">/adobe/assets/urn:aaid:aem:' + a.uuid + '/metadata</span>';
+}
+
+let asset = ASSETS[0];
+let token = 0;   // stale-response guard
+
+function pick(v, fallback){ return (v === undefined || v === null || v === '') ? fallback : v; }
+
+function renderCard(data){
+  const rm = data.repositoryMetadata || {};
+  const am = data.assetMetadata || {};
+  const title  = pick(am['dc:title'], asset.name);
+  const fmt    = pick(rm['dc:format'], '—');
+  const w      = am['tiff:ImageWidth'];
+  const h      = am['tiff:ImageLength'];
+  const dim    = (w && h) ? (w + ' × ' + h) : '—';
+  const bytes  = rm['repo:size'];
+  const sizeKb = (typeof bytes === 'number') ? (bytes / 1024).toFixed(1) + ' KB' : '—';
+  const status = pick(am['dam:assetStatus'], '—');
+
+  document.getElementById('fTitle').textContent  = title;
+  document.getElementById('fFormat').textContent = fmt;
+  document.getElementById('fDim').textContent    = dim;
+  document.getElementById('fSize').textContent   = sizeKb;
+  document.getElementById('fStatus').textContent = status;
+
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = status;
+  badge.className = 'badge ' + (status === 'approved' ? 'green' : 'red');
+  document.getElementById('fStatus').innerHTML =
+    '<span class="badge ' + (status === 'approved' ? 'green' : 'red') + '">' + status + '</span>';
+}
+
+function render(){
+  const my = ++token;
+  const a = asset;
+
+  // URLs
+  document.getElementById('metaUrl').innerHTML = metaUrlHtml(a);
+
+  // delivered thumbnail
+  document.getElementById('thumb').src = thumbUrl(a);
+
+  // reset readouts while fetching
+  document.getElementById('metaJson').textContent = 'Fetching…';
+  document.getElementById('ctBadge').textContent = '—';
+
+  // live metadata fetch — one OpenAPI endpoint, JSON payload
+  fetch(metaUrl(a), {cache:'no-store'}).then(r => {
+    if(my !== token) return null;                       // stale guard
+    document.getElementById('ctBadge').textContent = r.headers.get('content-type') || '';
+    return r.json();
+  }).then(data => {
+    if(my !== token || data === null) return;           // stale guard
+    document.getElementById('metaJson').textContent = JSON.stringify(data, null, 2);
+    renderCard(data);
+  }).catch(() => {
+    if(my !== token) return;
+    document.getElementById('metaJson').textContent = 'Could not fetch metadata.';
+    document.getElementById('ctBadge').textContent = '—';
+  });
+}
+
+/* asset chips */
+const chipHost = document.getElementById('assetChips');
+ASSETS.forEach((a, i) => {
+  const c = document.createElement('span');
+  c.className = 'chip' + (i === 0 ? ' active' : '');
+  c.textContent = a.label;
+  c.addEventListener('click', () => {
+    chipHost.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    asset = a;
+    render();
+  });
+  chipHost.appendChild(c);
+});
+
+document.getElementById('copyMeta').addEventListener('click', () => {
+  navigator.clipboard.writeText(metaUrl(asset));
+  const b = document.getElementById('copyMeta');
+  b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy URL', 1200);
+});
+
+render();
+</script>
+</body>
+</html>

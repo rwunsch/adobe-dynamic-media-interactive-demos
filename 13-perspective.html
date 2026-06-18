@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Templating &amp; Perspective — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+<style>
+  .pstage{ position:relative; display:inline-block; line-height:0; max-width:100%; }
+  .pstage img{ max-width:100%; height:auto; border-radius:6px; display:block; box-shadow:0 10px 40px rgba(0,0,0,.45); }
+  .pstage svg{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .handle{ position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%;
+    background:rgba(235,16,0,.9); border:2px solid #fff; cursor:grab; touch-action:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.5); z-index:3; }
+  .handle:active{ cursor:grabbing; transform:scale(1.15); }
+  .handle b{ position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:11px;
+    font-family:var(--mono); color:#fff; background:rgba(0,0,0,.6); padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Templating &amp; perspective warp</div>
+    <h1>Personalized text, warped into the scene</h1>
+    <p>A reusable <b>template</b> renders personalized text, and the <code style="font-family:var(--mono)">perspective=</code>
+       modifier maps it onto a surface in the photo — painted on the asphalt, printed on the deck chair. Type a name,
+       then <b>drag the four red corners</b> to re-project the text. Every frame is rendered live by Dynamic Media from one
+       template + one parameter set. (Public Adobe demo company.)</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Scene</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="seg" id="sceneSeg">
+            <button data-v="parking" class="active">Parking spot</button>
+            <button data-v="lounge">Cruise lounge</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Personalization</h2>
+        <div class="ctrl">
+          <label>Name</label>
+          <input type="text" id="name" value="Robert Wunsch" maxlength="28">
+        </div>
+        <div id="loungeFields" style="display:none">
+          <div class="ctrl">
+            <label>Headline line 1</label>
+            <input type="text" id="h1" value="We love our Platinum members!" maxlength="40">
+          </div>
+          <div class="ctrl">
+            <label>Headline line 2</label>
+            <input type="text" id="h2" value="This lounge is for you, Robert Wunsch!" maxlength="48">
+          </div>
+          <div class="ctrl" style="margin-bottom:0">
+            <label>Offer line</label>
+            <input type="text" id="offer" value="don't mind if I do!" maxlength="32">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Perspective</h2>
+        <p class="hint" style="margin-top:0">Drag the corners on the image. The 8 numbers below are the
+          quad in the template's native pixel space.</p>
+        <button class="copy-btn" id="reset" style="width:100%;padding:9px">Reset corners</button>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage" style="background:#1a1a1a">
+        <div class="pstage" id="pstage">
+          <img id="out" alt="composited">
+          <svg id="quad" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="" fill="rgba(235,16,0,0.12)" stroke="rgba(235,16,0,0.8)" stroke-width="0.4"/></svg>
+        </div>
+      </div>
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live image-serving URL (template + perspective)</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint"><code style="font-family:var(--mono)">layer</code> pulls in a <b>template</b> via
+        <code style="font-family:var(--mono)">src=is(&hellip;)</code> (its own personalized text params), and
+        <code style="font-family:var(--mono)">perspective=x1,y1,&hellip;,x4,y4</code> projects that layer onto the
+        four points. Author the template once; generate unlimited personalized, perspective-correct creatives by URL.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENES = {
+  parking: {
+    nativeW:800, nativeH:800,
+    corners:[[384,333],[675,369],[510,616],[86,475]],
+    fields:false,
+    url(s){
+      const last=encodeURIComponent(s.name);
+      return `https://s7d4.scene7.com/is/image/ajhco/space801_space?$lrg$`
+        +`&layer=1&src=is(ajhco/reservedfor2firstlast?$last=${last}&$first=)`
+        +`&perspective=${persp(s)}`;
+    }
+  },
+  lounge: {
+    nativeW:1200, nativeH:1200,
+    corners:[[129,809],[292,797],[400,913],[255,942]],
+    fields:true,
+    url(s){
+      const F='Pluto%20Sans%20Cond%20Heavy';
+      const e=encodeURIComponent;
+      return `https://techsupport.scene7.com/is/image/ajhcom/princesst5copyfit?wid=900`
+        +`&$font=${F}&$text1=${e(s.h1)}&$text2=${e(s.h2)}`
+        +`&$offerfont=${F}&$offermessage=${e(s.offer)}&$offerimage=is{ajhcom/deckchair}`
+        +`&layer=9&src=is(ajhcom/reservedt2?$lastname=${e(s.name)}&$firstname=&$reservedtext=Reserved%20For&$font=${F}&$hideshow=0)`
+        +`&perspective=${persp(s)}`;
+    }
+  }
+};
+
+const state={ scene:'parking', name:'Robert Wunsch',
+              h1:'We love our Platinum members!', h2:'This lounge is for you, Robert Wunsch!',
+              offer:"don't mind if I do!",
+              corners: SCENES.parking.corners.map(c=>c.slice()) };
+
+function persp(s){ return s.corners.map(c=>Math.round(c[0])+','+Math.round(c[1])).join(','); }
+function scene(){ return SCENES[state.scene]; }
+
+const out=document.getElementById('out');
+const pstage=document.getElementById('pstage');
+const quad=document.getElementById('quad').querySelector('polygon');
+const handles=[];
+
+let imgTimer=null;
+function refreshImage(now){
+  const url=scene().url(state);
+  document.getElementById('url').innerHTML=urlHtml(url);
+  clearTimeout(imgTimer);
+  imgTimer=setTimeout(()=>{ out.src=url; }, now?0:130);
+}
+function urlHtml(u){
+  const q=u.indexOf('?');
+  const host=u.slice(0,u.indexOf('/is/image'));
+  const path=u.slice(u.indexOf('/is/image'), q);
+  let h='<span class="host">'+host+'</span><span class="path">'+path.replace(/</g,'&lt;')+'</span><span class="q">?</span>';
+  u.slice(q+1).split('&').forEach((kv,i)=>{
+    if(i) h+='<span class="amp">&amp;</span>';
+    const eq=kv.indexOf('=');
+    if(eq<0){ h+='<span class="k">'+kv.replace(/</g,'&lt;')+'</span>'; }
+    else { h+='<span class="k">'+kv.slice(0,eq).replace(/</g,'&lt;')+'</span>=<span class="v">'+kv.slice(eq+1).replace(/</g,'&lt;')+'</span>'; }
+  });
+  return h;
+}
+
+// ---- handles ----
+function natToPct(c){ const sc=scene(); return [c[0]/sc.nativeW*100, c[1]/sc.nativeH*100]; }
+function drawOverlay(){
+  state.corners.forEach((c,i)=>{
+    const [px,py]=natToPct(c);
+    handles[i].style.left=px+'%'; handles[i].style.top=py+'%';
+  });
+  quad.setAttribute('points', state.corners.map(c=>natToPct(c).join(',')).join(' '));
+}
+function makeHandles(){
+  ['TL','TR','BR','BL'].forEach((lbl,i)=>{
+    const h=document.createElement('div'); h.className='handle'; h.innerHTML='<b>'+lbl+'</b>';
+    pstage.appendChild(h); handles[i]=h;
+    const move=(e)=>{
+      const r=out.getBoundingClientRect();
+      const cx=(e.touches?e.touches[0].clientX:e.clientX), cy=(e.touches?e.touches[0].clientY:e.clientY);
+      let nx=(cx-r.left)/r.width*scene().nativeW, ny=(cy-r.top)/r.height*scene().nativeH;
+      nx=Math.max(0,Math.min(scene().nativeW,nx)); ny=Math.max(0,Math.min(scene().nativeH,ny));
+      state.corners[i]=[nx,ny]; drawOverlay(); refreshImage(false);
+    };
+    const up=()=>{ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up);
+                   document.removeEventListener('touchmove',move); document.removeEventListener('touchend',up); refreshImage(true); };
+    const down=(e)=>{ e.preventDefault();
+      document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
+      document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('touchend',up); };
+    h.addEventListener('mousedown',down); h.addEventListener('touchstart',down,{passive:false});
+  });
+}
+
+function setScene(name){
+  state.scene=name;
+  state.corners=SCENES[name].corners.map(c=>c.slice());
+  document.getElementById('loungeFields').style.display=SCENES[name].fields?'block':'none';
+  drawOverlay(); refreshImage(true);
+}
+
+// ---- wiring ----
+makeHandles();
+document.querySelectorAll('#sceneSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#sceneSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); setScene(b.dataset.v);
+}));
+['name','h1','h2','offer'].forEach(id=>document.getElementById(id).addEventListener('input',e=>{ state[id]=e.target.value; refreshImage(false); }));
+document.getElementById('reset').addEventListener('click',()=>{ state.corners=scene().corners.map(c=>c.slice()); drawOverlay(); refreshImage(true); });
+document.getElementById('copy').addEventListener('click',()=>{ navigator.clipboard.writeText(scene().url(state));
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200); });
+out.addEventListener('load', drawOverlay);
+window.addEventListener('resize', drawOverlay);
+
+setScene('parking');
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approval-Gated Delivery — Dynamic Media OpenAPI</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Governance</div>
+    <h1>Delivery is governed by approval</h1>
+    <p>With Dynamic Media OpenAPI, an asset is <b>not</b> publicly deliverable until it's been
+       <b>approved</b> in AEM (Review&nbsp;Status&nbsp;=&nbsp;Approved) and published. The delivery URL —
+       by the asset's stable ID — is the same the whole time; <b>approval flips it live</b>. Each tile below
+       checks its real OpenAPI delivery URL right now. Approve one in AEM, hit <b>Re-check</b>, and watch it
+       turn green.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Governance lifecycle</h2>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+          <div class="badge" style="background:var(--card-2);color:var(--muted)">1 · Uploaded → processed</div>
+          <div class="badge" style="background:var(--card-2);color:var(--muted)">2 · Review Status = <b>Approved</b></div>
+          <div class="badge" style="background:var(--card-2);color:var(--muted)">3 · Published</div>
+          <div class="badge green">4 · Live on OpenAPI delivery ✓</div>
+        </div>
+        <p class="hint" style="margin-top:14px">Until steps 2–3 are done, the public delivery endpoint
+           returns <code style="font-family:var(--mono)">404 "Item doesn't exist"</code> — content can't
+           leak before it's signed off.</p>
+      </div>
+      <div class="card">
+        <button class="copy-btn" id="recheck" style="width:100%;padding:11px;font-size:14px">↻ Re-check delivery</button>
+        <p class="hint" id="summary" style="margin-top:12px">Checking…</p>
+      </div>
+      <div class="card">
+        <h2>Why it matters</h2>
+        <p class="hint" style="margin-top:0">Governance is built into delivery itself — not bolted on.
+          Compare with classic Scene7, where publishing is the only gate. Here, <b>brand/legal approval in
+          AEM is the switch</b> that makes an asset reachable by URL, and revoking approval pulls it back.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="grid" id="grid" style="grid-template-columns:repeat(2,1fr)"></div>
+      <p class="hint" style="margin-top:18px">Every tile points at
+        <code style="font-family:var(--mono)">delivery-pXXXXX-eYYYYYY.adobeaemcloud.com/adobe/assets/urn:aaid:aem:&lt;uuid&gt;/as/&hellip;</code>
+        — a stable, approval-gated URL. The image only appears once AEM says it may.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const DH='https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com/adobe/assets';
+// real RobertCo assets — some approved, some not (live state, re-checked on demand)
+const AEM='https://author-pXXXXX-eYYYYYY.adobeaemcloud.com/ui#/aem/assetdetails.html';
+const ASSETS=[
+  {label:'Forest trail',   uuid:'8c18286d-c218-4efc-aa07-35d846406079', name:'forest-trail', path:'/content/dam/aem-demo-assets/en/activities/cycling/forest-trail.jpg'},
+  {label:'Surfer · Costa Rica', uuid:'77ed958c-9433-471d-9b37-f770de400bf2', name:'surfing', path:'/content/dam/aem-demo-assets/en/adventures/surf-camp-in-costa-rica/surfing_2.jpg'},
+  {label:'Whistler MTB (not approved)', uuid:'5925e6b9-9f35-4da3-a2f9-d6227216394b', name:'whistler-1', path:'/content/dam/aem-demo-assets/en/adventures/whistler-mountain-biking/adobestock-122578479.jpeg'},
+  {label:'Whistler MTB (not approved)', uuid:'f75700fb-7366-431c-b1e1-608de4d76eee', name:'whistler-2', path:'/content/dam/aem-demo-assets/en/adventures/whistler-mountain-biking/adobestock-122615840.jpeg'},
+];
+const url=a=>`${DH}/urn:aaid:aem:${a.uuid}/as/${a.name}.jpg?width=520&t=${Math.floor(performance.now())}`;
+
+const grid=document.getElementById('grid');
+ASSETS.forEach((a,idx)=>{
+  const t=document.createElement('div'); t.className='tile'; t.id='t'+idx;
+  t.innerHTML=`<div class="state" style="aspect-ratio:4/3;background:#222;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+      <div class="ph hint" style="text-align:center;padding:0 14px">checking…</div>
+      <img alt="${a.label}" style="width:100%;height:100%;object-fit:cover;display:none">
+    </div>
+    <div class="cap"><div class="t">${a.label} <span class="badge" data-badge>…</span></div>
+      <div class="s" data-detail>urn:aaid:aem:${a.uuid.slice(0,8)}…</div>
+      <div class="s" style="margin-top:5px"><a href="${AEM}${a.path}" target="_blank" rel="noopener" style="color:#7fd6ff;text-decoration:none;font-weight:600">Open in AEM ↗</a></div></div>`;
+  grid.appendChild(t);
+});
+
+function check(){
+  document.getElementById('summary').textContent='Checking '+ASSETS.length+' assets…';
+  let live=0, done=0;
+  ASSETS.forEach((a,idx)=>{
+    const tile=document.getElementById('t'+idx);
+    const img=tile.querySelector('img'), ph=tile.querySelector('.ph'),
+          badge=tile.querySelector('[data-badge]'), detail=tile.querySelector('[data-detail]');
+    img.style.display='none'; ph.style.display='block'; ph.textContent='checking…';
+    badge.textContent='…'; badge.className='badge';
+    fetch(url(a),{cache:'no-store'}).then(r=>{
+      done++;
+      if(r.ok){
+        live++;
+        return r.blob().then(b=>{ img.src=URL.createObjectURL(b); img.style.display='block'; ph.style.display='none';
+          badge.textContent='200 · Delivered'; badge.className='badge green';
+          detail.innerHTML='<span style="color:var(--green)">Approved &amp; published</span> · live on OpenAPI'; });
+      } else {
+        ph.style.display='block'; ph.innerHTML='<b style="color:#ff7a6e">404</b><br>not available';
+        badge.textContent=r.status+' · Not available'; badge.className='badge red';
+        return r.text().then(txt=>{ let d='not approved / not published'; try{d=JSON.parse(txt).detail||d;}catch(e){}
+          detail.innerHTML='<span style="color:#ff7a6e">'+d+'</span> · approve in AEM to release'; });
+      }
+    }).catch(()=>{ done++; ph.innerHTML='<b style="color:#ff7a6e">error</b>'; badge.textContent='error'; badge.className='badge red'; })
+    .finally(()=>{ if(done===ASSETS.length){
+      document.getElementById('summary').innerHTML='<b style="color:var(--green)">'+live+'</b> of '+ASSETS.length
+        +' approved &amp; delivering. Approve another in AEM, then Re-check.'; } });
+  });
+}
+document.getElementById('recheck').addEventListener('click',check);
+check();
+</script>
+</body>
+</html>

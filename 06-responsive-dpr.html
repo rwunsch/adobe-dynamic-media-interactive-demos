@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsive srcset / DPR — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Responsive delivery</div>
+    <h1>One asset, every viewport &amp; density</h1>
+    <p>A single master, exposed at a handful of widths, lets the <i>browser</i> pick the smallest
+       file that still looks sharp — accounting for layout width <b>and</b> device pixel ratio.
+       Resize the window or drag the slider and watch which candidate the browser actually
+       downloads. No JavaScript decides this — it&rsquo;s native <code style="font-family:var(--mono);color:#7fd6ff">srcset</code>/<code style="font-family:var(--mono);color:#7fd6ff">sizes</code>.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+
+      <div class="card">
+        <h2>Simulate a layout width</h2>
+        <div class="ctrl">
+          <label>Container width <span class="val" id="cwV">700</span></label>
+          <input type="range" id="cw" min="160" max="1100" step="10" value="700">
+        </div>
+        <div class="ctrl">
+          <label>Device presets</label>
+          <div class="chips" id="devChips">
+            <span class="chip" data-w="320">Phone 320</span>
+            <span class="chip" data-w="420">Phone 420</span>
+            <span class="chip" data-w="768">Tablet 768</span>
+            <span class="chip active" data-w="700">Content 700</span>
+            <span class="chip" data-w="1100">Desktop 1100</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>This device</h2>
+        <div class="metrics" style="margin-top:0">
+          <div class="metric"><div class="m-label">Viewport</div><div class="m-val" id="mVp" style="font-size:20px">—</div></div>
+          <div class="metric"><div class="m-label">DPR</div><div class="m-val" id="mDpr" style="font-size:20px">—</div></div>
+        </div>
+        <p class="hint">DPR is fixed by your hardware (Retina = 2, most laptops = 1). Combine it with
+           the slot width and the browser solves for the right candidate.</p>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage" style="padding:18px">
+        <div id="slot" style="width:700px;max-width:100%;transition:width .15s">
+          <img id="img" alt="Responsive render" style="width:100%;height:auto;border-radius:6px;display:block;box-shadow:0 10px 40px rgba(0,0,0,.45)"
+            sizes="700px">
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Slot width (CSS px)</div><div class="m-val" id="mSlot" style="font-size:20px">—</div></div>
+        <div class="metric"><div class="m-label">Needed px (slot×DPR)</div><div class="m-val" id="mNeed" style="font-size:20px">—</div></div>
+        <div class="metric"><div class="m-label">Candidate chosen</div><div class="m-val good" id="mPick" style="font-size:20px">—</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row"><span>URL the browser actually downloaded (currentSrc)</span></div>
+        <div class="url" id="curUrl"></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>The srcset markup driving it</span>
+          <button class="copy-btn" id="copy">Copy markup</button>
+        </div>
+        <div class="url" id="markup" style="font-size:12px;line-height:1.8"></div>
+      </div>
+      <p class="hint">The browser multiplies the <b>slot width</b> (from <code style="font-family:var(--mono)">sizes</code>)
+         by your <b>DPR</b>, then picks the smallest <code style="font-family:var(--mono)">srcset</code> candidate
+         that meets it. Every candidate is the same master at a different <code style="font-family:var(--mono)">wid=</code>.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+let asset = DMAssets.current();
+let BASE  = DMAssets.imageBase(asset);
+const WIDTHS = [320, 640, 960, 1280, 1600];
+
+const img  = document.getElementById('img');
+const slot = document.getElementById('slot');
+
+function buildSrcset(){
+  img.setAttribute('srcset', WIDTHS.map(w=>`${BASE}?wid=${w}&qlt=75 ${w}w`).join(', '));
+  img.setAttribute('src', `${BASE}?wid=640&qlt=75`);
+}
+
+function urlHtml(u){
+  // colorize a single image-serving URL
+  const m = u.match(/^https?:\/\/([^\/]+)(\/[^?]*)(?:\?(.*))?$/);
+  if (!m) return u;
+  let html = '<span class="host">https://'+m[1]+'</span><span class="path">'+m[2]+'</span>';
+  if (m[3]){
+    m[3].split('&').forEach((pair,i)=>{
+      const [k,v] = pair.split('=');
+      html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+      html += '<span class="k">'+k+'</span>' + (v!==undefined ? '=<span class="v">'+v+'</span>' : '');
+    });
+  }
+  return html;
+}
+
+function renderMarkup(){
+  const lines = WIDTHS.map(w => `${BASE}?wid=${w}&qlt=75 ${w}w`);
+  // show as an attribute-ish block
+  let html = '<span class="k">srcset</span>=<span class="v">"</span><br>';
+  lines.forEach((l,i)=>{
+    html += '&nbsp;&nbsp;' + urlHtml(l.replace(/ \d+w$/,'')) +
+            ' <span class="v">' + l.match(/\d+w$/)[0] + '</span>' +
+            (i < lines.length-1 ? '<span class="amp">,</span>' : '') + '<br>';
+  });
+  html += '<span class="v">"</span><br><span class="k">sizes</span>=<span class="v">"' +
+          img.getAttribute('sizes') + '"</span>';
+  document.getElementById('markup').innerHTML = html;
+}
+
+function readout(){
+  const dpr      = window.devicePixelRatio || 1;
+  const slotW    = Math.round(slot.getBoundingClientRect().width);
+  const needed   = Math.round(slotW * dpr);
+
+  document.getElementById('mVp').textContent   = window.innerWidth + ' px';
+  document.getElementById('mDpr').textContent  = dpr.toFixed(2) + '×';
+  document.getElementById('mSlot').textContent = slotW + ' px';
+  document.getElementById('mNeed').textContent = needed + ' px';
+
+  const cur = img.currentSrc || img.src;
+  document.getElementById('curUrl').innerHTML = urlHtml(cur);
+  const wm = cur.match(/[?&]wid=(\d+)/);
+  document.getElementById('mPick').textContent = wm ? (wm[1] + 'w') : '—';
+}
+
+function setSlot(px){
+  // clamp to what the stage can show; CSS max-width:100% handles overflow
+  slot.style.width = px + 'px';
+  // update sizes so the browser re-evaluates the candidate for this slot
+  img.setAttribute('sizes', px + 'px');
+  // currentSrc updates asynchronously after the resource selection runs
+  requestAnimationFrame(()=> setTimeout(readout, 60));
+}
+
+// ---- controls ----
+document.getElementById('cw').addEventListener('input', e=>{
+  const v = +e.target.value;
+  document.getElementById('cwV').textContent = v;
+  document.querySelectorAll('#devChips .chip').forEach(x=>{
+    x.classList.toggle('active', +x.dataset.w === v);
+  });
+  setSlot(v);
+});
+document.querySelectorAll('#devChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#devChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  const w = +c.dataset.w;
+  document.getElementById('cw').value = w;
+  document.getElementById('cwV').textContent = w;
+  setSlot(w);
+}));
+document.getElementById('copy').addEventListener('click',()=>{
+  const markup = 'srcset="' + WIDTHS.map(w=>`${BASE}?wid=${w}&qlt=75 ${w}w`).join(', ') +
+                 '"\nsizes="' + img.getAttribute('sizes') + '"';
+  navigator.clipboard.writeText(markup);
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy markup',1200);
+});
+
+// live updates: window resize changes both viewport and (via media) DPR readout
+window.addEventListener('resize', readout);
+img.addEventListener('load', readout);
+
+DMAssets.mountPicker(document.getElementById('picker'), a => {
+  asset = a;
+  BASE = DMAssets.imageBase(asset);
+  buildSrcset();      // rebuild candidate URLs from the new asset
+  renderMarkup();
+  // let the browser re-run resource selection, then read out the chosen candidate
+  requestAnimationFrame(()=> setTimeout(readout, 60));
+});
+
+buildSrcset();
+renderMarkup();
+setSlot(700);
+readout();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

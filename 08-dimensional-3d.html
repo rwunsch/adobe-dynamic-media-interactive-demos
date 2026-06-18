@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3D / Dimensional Viewer — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Immersive 3D</div>
+    <h1>Spin it. The model streams from the same CDN.</h1>
+    <p>Upload a <b>GLB</b> or <b>OBJ</b> model and Dynamic Media delivers an interactive 3D
+       experience through the very same delivery network that serves your images and video —
+       one tenant, one CDN, no plugin and no separate 3D hosting. Drag to rotate, scroll to
+       zoom, right-drag to pan. Switch models below and the live Adobe HTML5 Dimensional Viewer
+       reloads in place.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Choose a model</h2>
+        <div class="ctrl">
+          <div class="chips" id="modelChips">
+            <span class="chip active" data-asset="RobertCo/dm-3d-files/bee/Bee.glb" data-label="Bee">Bee</span>
+            <span class="chip" data-asset="RobertCo/dm-3d-files/atlantic-explorer/AtlanticExplorer.glb" data-label="Atlantic Explorer">Atlantic Explorer</span>
+          </div>
+        </div>
+        <p class="hint">Each chip points the viewer at a different <code>.glb</code> asset on the
+           same Scene7 tenant. The model loads progressively — geometry first, textures after.</p>
+      </div>
+
+      <div class="card">
+        <h2>How to interact</h2>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Drag</span>
+          <span class="hint" style="margin:0 0 0 8px">Orbit / rotate the camera</span></div>
+        <div class="ctrl" style="margin-bottom:10px"><span class="badge blue">Scroll</span>
+          <span class="hint" style="margin:0 0 0 8px">Dolly in &amp; out (zoom)</span></div>
+        <div class="ctrl" style="margin-bottom:0"><span class="badge blue">Right-drag</span>
+          <span class="hint" style="margin:0 0 0 8px">Pan across the model</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Why it matters</h2>
+        <p class="hint" style="margin-top:0">
+          <b>GLB / OBJ</b> are open 3D formats — a GLB packs geometry, materials and textures into
+          one file. The viewer is rendered with WebGL, so it runs in any modern browser with no
+          download. Configure camera presets, lighting and turntable spin on the
+          <b>Viewer Preset</b> in DM, then embed the same viewer everywhere — PDP, AR hand-off,
+          configurator — all served and cached from the single Dynamic Media CDN.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage" style="padding:0; min-height:62vh; background:#1e1e1e;">
+        <iframe id="viewer" title="Adobe Dynamic Media Dimensional Viewer"
+                style="width:100%; height:62vh; border:0; border-radius:14px; display:block; background:#1e1e1e;"
+                allow="fullscreen; xr-spatial-tracking" allowfullscreen></iframe>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live Dimensional Viewer URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">The <code>asset</code> is the GLB on the tenant, <code>config</code> is the
+         3D Viewer Preset, and <code>contenturl</code> is the binary delivery endpoint
+         (<code>/is/content/</code>) — the same one that streams every other rich-media file.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const VIEWER = 'https://s7g10.scene7.com/s7viewers/html5/DimensionalViewer.html';
+const CONFIG = 'RobertCo/Dimensional';
+const SERVER = 'https://s7g10.scene7.com/is/image/';
+const CONTENT = 'https://s7g10.scene7.com/is/content/';
+
+function buildUrl(asset){
+  const q = [
+    ['asset', asset],
+    ['config', CONFIG],
+    ['serverUrl', SERVER],
+    ['contenturl', CONTENT]
+  ];
+  return VIEWER + '?' + q.map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+
+function renderUrlHtml(asset){
+  const parts = [
+    ['asset', asset],
+    ['config', CONFIG],
+    ['serverUrl', SERVER],
+    ['contenturl', CONTENT]
+  ];
+  let html = '<span class="host">https://s7g10.scene7.com</span>'
+           + '<span class="path">/s7viewers/html5/DimensionalViewer.html</span>';
+  parts.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  });
+  return html;
+}
+
+let current = 'RobertCo/dm-3d-files/bee/Bee.glb';
+function load(asset){
+  current = asset;
+  document.getElementById('viewer').src = buildUrl(asset);
+  document.getElementById('url').innerHTML = renderUrlHtml(asset);
+}
+
+document.querySelectorAll('#modelChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#modelChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  load(c.dataset.asset);
+}));
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl(current));
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+load(current);
+</script>
+</body>
+</html>

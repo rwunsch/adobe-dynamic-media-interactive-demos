@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stable, rename-safe asset ID — Dynamic Media OpenAPI</title>
+<link rel="stylesheet" href="css/demo.css">
+<style>
+  /* small inline tweaks — highlight the two URL segments that tell the story */
+  .url .uuid { color:var(--green); font-weight:700; background:rgba(10,163,91,.16); border-radius:4px; padding:1px 3px; }
+  .url .seo  { color:var(--orange); font-weight:700; background:rgba(255,163,17,.16); border-radius:4px; padding:1px 3px; }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; margin-top:12px; font-size:12.5px; color:var(--muted); }
+  .legend .sw { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:-1px; margin-right:6px; }
+  .legend .sw.id  { background:var(--green); }
+  .legend .sw.seo { background:var(--orange); }
+</style>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Asset identity</div>
+    <h1>Rename the file. The link never breaks.</h1>
+    <p>A Dynamic Media OpenAPI delivery URL addresses an asset by its <b>stable AEM UUID</b>
+       (<code style="font-family:var(--mono)">urn:aaid:aem:…</code>) — the asset's permanent identity.
+       The filename in the URL (the <b>seoname</b>) is purely cosmetic, there for humans and SEO.
+       Type <em>any</em> filename below: the image always loads, because the UUID — not the name — is
+       what resolves the asset. Rename or move the asset in AEM and every link keeps working.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card">
+        <h2>Type any filename</h2>
+        <div class="ctrl">
+          <label>Seoname <span class="val" id="seoLen">12</span></label>
+          <input type="text" id="seo" value="forest-trail" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Try a rename</label>
+          <div class="chips" id="egChips">
+            <span class="chip active" data-eg="forest-trail">forest-trail</span>
+            <span class="chip" data-eg="RENAMED-yesterday">RENAMED-yesterday</span>
+            <span class="chip" data-eg="hero-banner-Q3-final-v2">hero-banner-Q3-final-v2</span>
+            <span class="chip" data-eg="q7z9kp">q7z9kp (gibberish)</span>
+          </div>
+        </div>
+        <p class="hint" style="margin-bottom:0">The <b class="val" style="color:var(--green)">UUID</b> is the
+          identity. The <b style="color:var(--orange)">seoname</b> is cosmetic — rename it to anything and
+          the same pixels come back.</p>
+      </div>
+
+      <div class="card">
+        <h2>Why this matters</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:14px">
+          Classic Scene7 URLs are <b>name-based</b>: the asset's name <em>is</em> its address.
+          Rename the asset and every link 404s.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45">
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)"></td>
+            <th style="padding:6px 8px;text-align:left"><span class="badge red">Classic · name-based</span></th>
+            <th style="padding:6px 8px;text-align:left"><span class="badge blue">OpenAPI · UUID-based</span></th>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Addressed by</td>
+            <td style="padding:6px 8px">the asset <b>name</b> in the path</td>
+            <td style="padding:6px 8px">the stable AEM <b>UUID</b></td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Rename in AEM</td>
+            <td style="padding:6px 8px"><b style="color:#ff7a6e">breaks</b> every existing link &rarr; 404</td>
+            <td style="padding:6px 8px"><b style="color:#3fd690">no effect</b> — URL is permanent</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 8px 6px 0;color:var(--muted)">Filename role</td>
+            <td style="padding:6px 8px">the identity</td>
+            <td style="padding:6px 8px">cosmetic / SEO only</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="img" alt="Dynamic Media OpenAPI render — resolved by UUID"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">HTTP status</div><div class="m-val" id="mStatus">—</div></div>
+        <div class="metric"><div class="m-label">Delivered size</div><div class="m-val" id="mBytes">—</div></div>
+        <div class="metric"><div class="m-label">Resolved by</div><div class="m-val" id="mBy" style="font-size:16px;color:var(--green)">UUID</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Dynamic Media OpenAPI delivery URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+        <div class="legend">
+          <span><span class="sw id"></span><b style="color:#fff">UUID</b> — the identity (fixed)</span>
+          <span><span class="sw seo"></span><b style="color:#fff">seoname</b> — cosmetic, rename me</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:22px">
+        <h2>Contrast · the classic URL would 404</h2>
+        <p class="hint" style="margin-top:0;margin-bottom:8px">If this asset were name-based on Scene7,
+          renaming it would break this link instantly:</p>
+        <div class="url" id="classicUrl"></div>
+        <p class="hint" id="classicNote" style="margin-bottom:0"></p>
+      </div>
+
+      <p class="hint">Every seoname above returns the <b>same image, HTTP 200</b> — the CDN resolves the
+        asset from the <b>UUID</b> and ignores the filename. That is why an OpenAPI link survives renames
+        and moves, while a name-based classic link does not.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* forest-trail on the RobertCo tenant — verified: EVERY seoname returns the same image, HTTP 200. */
+const DMOAPI_HOST = 'https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com';
+const UUID = '8c18286d-c218-4efc-aa07-35d846406079';
+const WIDTH = 600;
+
+const CLASSIC_SERVER = 'https://s7g10.scene7.com';
+const CLASSIC_COMPANY = 'RobertCo';
+
+let seo = 'forest-trail';
+
+/* sanitize to something URL-path-safe so the live fetch always works */
+function clean(s){
+  return (s || '').trim().replace(/\s+/g,'-').replace(/[^A-Za-z0-9._-]/g,'') || 'untitled';
+}
+
+function dmoapiUrl(name){
+  return `${DMOAPI_HOST}/adobe/assets/urn:aaid:aem:${UUID}/as/${clean(name)}.jpg?width=${WIDTH}`;
+}
+function classicUrl(name){
+  return `${CLASSIC_SERVER}/is/image/${CLASSIC_COMPANY}/${clean(name)}?wid=${WIDTH}`;
+}
+
+/* color-coded anatomy with the UUID + seoname segments highlighted as the story */
+function dmoapiUrlHtml(name){
+  const n = clean(name);
+  return '<span class="host">' + DMOAPI_HOST + '</span>'
+    + '<span class="path">/adobe/assets/urn:aaid:aem:</span>'
+    + '<span class="uuid">' + UUID + '</span>'
+    + '<span class="path">/as/</span>'
+    + '<span class="seo">' + n + '</span>'
+    + '<span class="path">.jpg</span>'
+    + '<span class="q">?</span><span class="k">width</span>=<span class="v">' + WIDTH + '</span>';
+}
+function classicUrlHtml(name){
+  return '<span class="host">' + CLASSIC_SERVER + '</span>'
+    + '<span class="path">/is/image/' + CLASSIC_COMPANY + '/</span>'
+    + '<span class="seo">' + clean(name) + '</span>'
+    + '<span class="q">?</span><span class="k">wid</span>=<span class="v">' + WIDTH + '</span>';
+}
+
+let token = 0;
+function render(){
+  const url = dmoapiUrl(seo);
+  document.getElementById('url').innerHTML = dmoapiUrlHtml(seo);
+  document.getElementById('classicUrl').innerHTML = classicUrlHtml(seo);
+
+  const renamed = clean(seo) !== 'forest-trail';
+  document.getElementById('classicNote').innerHTML = renamed
+    ? 'Renamed to <b style="color:#ff7a6e">' + clean(seo) + '</b> — the classic name-based link now points '
+      + 'at an asset that no longer exists under that name &rarr; <b style="color:#ff7a6e">404</b>. '
+      + 'The OpenAPI URL above is unaffected.'
+    : 'A name-based link only works while the name is exactly this. Rename the asset and it '
+      + '<b style="color:#ff7a6e">404</b>s — try one of the rename chips on the left.';
+
+  const my = ++token;
+  const img = document.getElementById('img');
+  fetch(url, {cache:'no-store'}).then(r => {
+    if(my !== token) return null;                 // stale-response guard
+    document.getElementById('mStatus').textContent = 'HTTP ' + r.status;
+    document.getElementById('mStatus').className = 'm-val' + (r.ok ? ' good' : ' warn');
+    return r.blob();
+  }).then(b => {
+    if(my !== token || !b) return;                // stale-response guard
+    img.src = URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent = (b.size/1024).toFixed(1) + ' KB';
+  }).catch(() => {
+    if(my !== token) return;
+    document.getElementById('mStatus').textContent = '—';
+    img.src = url;
+  });
+}
+
+/* text input */
+const seoEl = document.getElementById('seo');
+seoEl.addEventListener('input', () => {
+  seo = seoEl.value;
+  document.getElementById('seoLen').textContent = clean(seo).length;
+  document.querySelectorAll('#egChips .chip').forEach(x => x.classList.remove('active'));
+  render();
+});
+
+/* one-click example names */
+document.querySelectorAll('#egChips .chip').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('#egChips .chip').forEach(x => x.classList.remove('active'));
+  c.classList.add('active');
+  seo = c.dataset.eg;
+  seoEl.value = seo;
+  document.getElementById('seoLen').textContent = clean(seo).length;
+  render();
+}));
+
+document.getElementById('copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(dmoapiUrl(seo));
+  const b = document.getElementById('copy'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy URL', 1200);
+});
+
+render();
+</script>
+</body>
+</html>

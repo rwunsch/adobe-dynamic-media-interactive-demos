@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dynamic Media — Interactive Demos</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <div class="demo-head">
+    <div class="eyebrow">Adobe Dynamic Media · Live demos on the RobertCo tenant</div>
+    <h1>Interactive Dynamic Media Demos</h1>
+    <p>Standalone, hands-on demos of Dynamic Media capabilities — every one renders live against a
+       real Dynamic Media tenant. Built to be shown on their own or dropped into the presentation deck.</p>
+  </div>
+
+  <div style="border-left:6px solid var(--adobe-red);padding-left:16px;margin:6px 0 18px">
+    <div class="eyebrow">Classic Dynamic Media · Scene7 delivery</div>
+    <h2 style="font-size:22px;font-weight:800;margin:4px 0 4px">Today's capabilities</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0;max-width:760px">Rendering, smart imaging, smart crop, viewers, templating and compositing — delivered from the Scene7 platform (<code style="font-family:var(--mono)">*.scene7.com</code>).</p>
+  </div>
+  <div class="gallery">
+    <a class="gcard" href="01-url-composition.html">
+      <span class="num">01</span><h3>URL Composition Explorer</h3>
+      <p>The hero demo. Size, format, quality, sharpen, color ops, rotate — every transform is a live URL parameter you can copy.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="02-format-quality.html">
+      <span class="num">02</span><h3>Smart Imaging: Format &amp; Quality</h3>
+      <p>JPEG vs WebP vs AVIF at any quality, with a live bytes-saved meter. Shows the bandwidth win Smart Imaging captures automatically.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="03-smart-crop.html">
+      <span class="num">03</span><h3>Smart Crop</h3>
+      <p>One master, content-aware re-cropped to square, 16:9, portrait and banner — all from named crops on the same URL.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="04-crop-region.html">
+      <span class="num">04</span><h3>Interactive Crop &amp; Region</h3>
+      <p>Drag a crop rectangle on the master and watch <code>crop=</code> &amp; <code>fit=</code> build live.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="05-image-presets.html">
+      <span class="num">05</span><h3>Image Presets</h3>
+      <p>Switch between the tenant's <b>real</b> named presets (?$preset$) — centralized, governed rendering recipes.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="06-responsive-dpr.html">
+      <span class="num">06</span><h3>Responsive srcset / DPR</h3>
+      <p>Resize the window and see which URL the browser actually fetches for the viewport &amp; pixel density.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="07-zoom-viewer.html">
+      <span class="num">07</span><h3>Zoom Viewer</h3>
+      <p>Embedded interactive zoom viewer on a high-resolution asset.</p>
+      <span class="tag">Viewer · Live</span>
+    </a>
+    <a class="gcard" href="08-dimensional-3d.html">
+      <span class="num">08</span><h3>3D / Dimensional Viewer</h3>
+      <p>The RobertCo GLB models — rotate, zoom, inspect in the browser.</p>
+      <span class="tag">Viewer · Live</span>
+    </a>
+    <a class="gcard" href="09-text-templating.html">
+      <span class="num">09</span><h3>Variable Text Templating</h3>
+      <p>Type a headline → text burned into the image server-side (real RTF layer), switchable background &amp; fonts.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="11-preset-gallery.html">
+      <span class="num">10</span><h3>Treatments &amp; Smart Crop</h3>
+      <p>Brand-treatment gallery (B&amp;W, vivid, warm, duotone…) plus naive centre-crop vs content-aware Smart Crop.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="12-video.html">
+      <span class="num">11</span><h3>Adaptive Video Delivery</h3>
+      <p>One upload → auto-encoded bitrate ladder; the viewer picks the rendition per device &amp; network.</p>
+      <span class="tag">Viewer · Live</span>
+    </a>
+    <a class="gcard" href="13-perspective.html">
+      <span class="num">12</span><h3>Templating &amp; Perspective</h3>
+      <p>Personalized text warped onto a surface — drag the corners to re-project. Template + <code>perspective=</code>.</p>
+      <span class="tag">Templating · Live</span>
+    </a>
+    <a class="gcard" href="14-compositing.html">
+      <span class="num">13</span><h3>Layering &amp; Compositing</h3>
+      <p>Composite a transparent cutout over any scene — position, opacity, edge spread, drop shadow, background blur.</p>
+      <span class="tag">Classic DM · Live</span>
+    </a>
+    <a class="gcard" href="15-template-params.html">
+      <span class="num">14</span><h3>Parameterized Template</h3>
+      <p>One template, every variant by URL — edit the headline, toggle scene layers. The production templating story.</p>
+      <span class="tag">Templating · Live</span>
+    </a>
+    <a class="gcard" href="16-one-to-one.html">
+      <span class="num">15</span><h3>1-to-1 Templating</h3>
+      <p>Personalized product banner — swap product, headline, price, colours by URL. (Adobe public Viewers assets.)</p>
+      <span class="tag">Templating · Live</span>
+    </a>
+    <a class="gcard" href="22-campaign-segments.html">
+      <span class="num">16</span><h3>Segment-Driven Campaigns</h3>
+      <p>One template → a different banner per audience segment. A small bundle of visibility &amp; text params per segment, shown side by side.</p>
+      <span class="tag">Templating · Live</span>
+    </a>
+    <a class="gcard" href="17-viewers.html">
+      <span class="num">17</span><h3>Interactive Viewers</h3>
+      <p>Spin set, mixed media, image set, inline zoom, shoppable banner — one asset → an interactive experience.</p>
+      <span class="tag">Viewer · Live</span>
+    </a>
+  </div>
+
+  <div style="border-left:6px solid var(--adobe-red);padding-left:16px;margin:46px 0 18px">
+    <div class="eyebrow">Dynamic Media with OpenAPI · AEM-native delivery</div>
+    <h2 style="font-size:22px;font-weight:800;margin:4px 0 4px">The path forward</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0;max-width:760px">Assets delivered straight from AEM (<code style="font-family:var(--mono)">delivery-p…-e….adobeaemcloud.com</code>) by stable asset ID, governed by AEM approval — no Scene7 sync.</p>
+  </div>
+  <div class="gallery">
+    <a class="gcard" href="10-classic-vs-dmoapi.html">
+      <span class="num">18</span><h3>Classic vs DMoAPI</h3>
+      <p>The bridge: what each one <em>is</em>, and the same master delivered both ways side by side — live.</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="18-approval-gated.html">
+      <span class="num">19</span><h3>Approval-gated delivery</h3>
+      <p>Governance in action: unapproved assets 404; approve in AEM + Re-check and they go live. Real-time delivery status.</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="19-stable-id.html">
+      <span class="num">20</span><h3>Stable, rename-safe asset ID</h3>
+      <p>The <code>urn:aaid:aem:&lt;uuid&gt;</code> never changes — rename or move the asset and the delivery URL still resolves.</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="20-metadata-api.html">
+      <span class="num">21</span><h3>Asset metadata API</h3>
+      <p>Fetch the asset's metadata as JSON over the OpenAPI — the headless / Content-Hub integration story.</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="21-web-optimized.html">
+      <span class="num">22</span><h3>Web-optimized delivery</h3>
+      <p>AEM-native <code>as/</code> renditions with width/quality/format negotiation from one governed asset.</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="23-capability-parity.html">
+      <span class="num">23</span><h3>Classic vs OpenAPI — capability parity</h3>
+      <p>Same master, both tiers, live: resize/quality/crop/rotate/WebP transfer 1:1; smart crop, presets, colour ops, compositing &amp; secure delivery stay Classic-only (OpenAPI 400 shown live).</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+    <a class="gcard" href="24-asset-selector.html">
+      <span class="num">24</span><h3>Asset Selector → any app</h3>
+      <p>Embed Adobe's Asset Selector micro-frontend, pick any approved asset, and get its stable OpenAPI delivery URL back — ready to drop into any application you build. (Needs Adobe sign-in.)</p>
+      <span class="tag">DMoAPI · Live</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>

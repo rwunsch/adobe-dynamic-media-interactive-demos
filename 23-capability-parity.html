@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classic vs OpenAPI — Capability Parity</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media OpenAPI · Classic vs OpenAPI</div>
+    <h1>Same intent, two delivery tiers</h1>
+    <p>The same master asset, delivered by <b>Classic Scene7</b> (<code style="font-family:var(--mono)">s7g10.scene7.com/is/image/RobertCo/forest-trail</code>)
+       and by <b>Dynamic Media OpenAPI</b> (<code style="font-family:var(--mono)">delivery-…adobeaemcloud.com/…/as/forest-trail.jpg</code>).
+       Pick a transform — it renders on <b>both</b> tiers, live, with both URLs. The OpenAPI tier deliberately
+       exposes a <b>lean, governed subset</b> of modifiers; the rich Scene7 vocabulary stays on Classic.
+       Everything here is probed live against the real tenant.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <h2>Transform</h2>
+        <div class="ctrl" style="margin-bottom:0">
+          <div class="seg" id="xfSeg" style="flex-wrap:wrap">
+            <button data-x="resize" class="active">Resize</button>
+            <button data-x="quality">Quality</button>
+            <button data-x="crop">Crop</button>
+            <button data-x="rotate">Rotate</button>
+            <button data-x="webp">WebP</button>
+          </div>
+        </div>
+        <div class="ctrl" id="sliderWrap" style="margin-top:16px;margin-bottom:0">
+          <label id="sliderLabel">Width <span id="sliderVal" style="color:var(--muted-2);font-weight:400"></span></label>
+          <input type="range" id="slider" min="200" max="1400" value="600" style="width:100%">
+        </div>
+        <p class="hint" style="margin-top:14px" id="xfNote"></p>
+      </div>
+
+      <div class="card">
+        <h2>The two parameter dialects</h2>
+        <p class="hint" style="margin-top:0">Classic uses <code style="font-family:var(--mono)">wid</code> /
+          <code style="font-family:var(--mono)">qlt</code>; OpenAPI uses
+          <code style="font-family:var(--mono)">width</code> / <code style="font-family:var(--mono)">quality</code>.
+          <code style="font-family:var(--mono)">crop=x,y,w,h</code> and
+          <code style="font-family:var(--mono)">rotate</code> share the same syntax on both. Format is an
+          extension (<code style="font-family:var(--mono)">.webp</code>) or
+          <code style="font-family:var(--mono)">Accept</code>-negotiated on OpenAPI; a Smart-Imaging
+          ruleset on Classic.</p>
+      </div>
+    </div>
+
+    <div class="col-stage">
+      <div class="grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="tile">
+          <div style="aspect-ratio:3/2;background:#222;overflow:hidden;display:flex;align-items:center;justify-content:center">
+            <img id="imgC" alt="Classic" style="width:100%;height:100%;object-fit:contain">
+          </div>
+          <div class="cap"><div class="t">Classic Scene7 <span class="badge red">wid/qlt</span></div>
+            <div class="s" id="bytesC" style="margin-top:4px">—</div></div>
+        </div>
+        <div class="tile">
+          <div style="aspect-ratio:3/2;background:#222;overflow:hidden;display:flex;align-items:center;justify-content:center">
+            <img id="imgO" alt="OpenAPI" style="width:100%;height:100%;object-fit:contain">
+          </div>
+          <div class="cap"><div class="t">Dynamic Media OpenAPI <span class="badge blue">width/quality</span></div>
+            <div class="s" id="bytesO" style="margin-top:4px">—</div></div>
+        </div>
+      </div>
+      <div class="urlbar" style="margin-top:14px">
+        <div class="label-row"><span>Classic URL</span><button class="copy-btn" id="copyC">Copy</button></div>
+        <div class="url" id="urlC"></div>
+      </div>
+      <div class="urlbar" style="margin-top:10px">
+        <div class="label-row"><span>OpenAPI URL</span><button class="copy-btn" id="copyO">Copy</button></div>
+        <div class="url" id="urlO"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-left:6px solid var(--adobe-red);padding-left:16px;margin:34px 0 16px">
+    <h2 style="font-size:20px;font-weight:800;margin:2px 0 4px">Still Classic-only</h2>
+    <p style="color:var(--muted);font-size:14px;margin:0;max-width:840px">The rich Scene7 modifier vocabulary
+      isn't (yet) on the OpenAPI delivery tier. Where it's live-checkable, the OpenAPI response is probed in
+      real time — e.g. a named smart crop returns a real <code style="font-family:var(--mono)">400 Invalid Parameters</code>.</p>
+  </div>
+  <div class="grid" id="matrix" style="grid-template-columns:repeat(2,1fr)"></div>
+
+  <p class="hint" style="margin-top:18px">Why a lean subset? The OpenAPI tier is built for <b>governed, headless,
+    multi-channel</b> delivery — a stable ID, approval-gated, with just the transforms a web/app client needs.
+    Heavy art-direction (named smart crops, image presets, colour treatments, text/layer compositing,
+    interactive viewers, Basic Templates, 3D) lives in Classic. Adobe is steadily closing the gap —
+    video Smart Crop and multi-caption/audio reached OpenAPI in 2026.5.0.</p>
+</div>
+
+<script>
+const C='https://s7g10.scene7.com/is/image/RobertCo/forest-trail';
+const DH='https://delivery-pXXXXX-eYYYYYY.adobeaemcloud.com/adobe/assets';
+const U='urn:aaid:aem:8c18286d-c218-4efc-aa07-35d846406079';
+const O=DH+'/'+U+'/as/forest-trail';
+const cb=()=>'cb='+Date.now()+Math.floor(performance.now());
+
+// transform definitions: build {classic, openapi} query strings + slider config
+const XF={
+  resize:{label:'Width',min:200,max:1400,val:600,unit:'px',
+    note:'Resize is the everyday transform — identical result on both tiers, different param name.',
+    c:v=>`wid=${v}`, o:v=>`width=${v}`},
+  quality:{label:'Quality',min:10,max:100,val:40,unit:'',
+    note:'Both tiers re-encode at the requested quality. Lower quality → fewer bytes, same pixels.',
+    c:v=>`wid=700&qlt=${v}`, o:v=>`width=700&quality=${v}`},
+  crop:{label:'Crop size',min:200,max:1000,val:500,unit:'px sq',
+    note:'crop=x,y,w,h shares the same syntax on both tiers. Here a square region from (200,200).',
+    c:v=>`wid=600&crop=200,200,${v},${v}`, o:v=>`width=600&crop=200,200,${v},${v}`},
+  rotate:{label:'Rotate',min:0,max:270,step:90,val:90,unit:'°',
+    note:'Rotate is honoured on both tiers (0 / 90 / 180 / 270°).',
+    c:v=>`wid=600&rotate=${v}`, o:v=>`width=600&rotate=${v}`},
+  webp:{label:'Width',min:200,max:1400,val:700,unit:'px',
+    note:'Format negotiation: OpenAPI serves WebP via the .webp extension or Accept header; Classic via its Smart-Imaging ruleset. Both shrink the payload vs JPEG.',
+    c:v=>`wid=${v}&fmt=webp`, o:v=>`width=${v}`, oExt:'.webp'},
+};
+
+let cur='resize';
+const $=id=>document.getElementById(id);
+function classicUrl(v){ const x=XF[cur]; return C+'?'+x.c(v)+'&'+cb(); }
+function openapiUrl(v){ const x=XF[cur]; const ext=x.oExt||'.jpg'; return DH+'/'+U+'/as/forest-trail'+ext+'?'+x.o(v)+'&'+cb(); }
+function classicUrlClean(v){ const x=XF[cur]; return C+'?'+x.c(v); }
+function openapiUrlClean(v){ const x=XF[cur]; const ext=x.oExt||'.jpg'; return DH+'/'+U+'/as/forest-trail'+ext+'?'+x.o(v); }
+
+function colorUrl(full){
+  // colorize host vs path vs params
+  const m=full.match(/^(https:\/\/[^/]+)(\/[^?]*)\??(.*)$/);
+  if(!m) return full;
+  let q=m[3].split('&').map(p=>{const [k,val]=p.split('=');
+    return '<span class="k">'+k+'</span>'+(val!==undefined?'=<span class="v">'+val+'</span>':'');}).join('<span class="amp">&amp;</span>');
+  return '<span class="host">'+m[1]+'</span><span class="path">'+m[2]+'</span>'+(m[3]?'<span class="q">?</span>'+q:'');
+}
+
+let token=0;
+function loadInto(imgEl,bytesEl,url){
+  fetch(url,{cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    imgEl.src=URL.createObjectURL(b);
+    bytesEl.textContent=(b.size/1024).toFixed(0)+' KB · '+b.type;
+  }).catch(()=>{ imgEl.src=url; bytesEl.textContent='—'; });
+}
+function update(){
+  const x=XF[cur], v=$('slider').value;
+  $('sliderLabel').firstChild.textContent=x.label+' ';
+  $('sliderVal').textContent=v+(x.unit?' '+x.unit:'');
+  $('xfNote').textContent=x.note;
+  $('urlC').innerHTML=colorUrl(classicUrlClean(v));
+  $('urlO').innerHTML=colorUrl(openapiUrlClean(v));
+  loadInto($('imgC'),$('bytesC'),classicUrl(v));
+  loadInto($('imgO'),$('bytesO'),openapiUrl(v));
+}
+function setXf(x){
+  cur=x; const cfg=XF[x];
+  const s=$('slider');
+  s.min=cfg.min; s.max=cfg.max; s.step=cfg.step||(x==='quality'?5:10); s.value=cfg.val;
+  update();
+}
+$('xfSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  $('xfSeg').querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); setXf(b.dataset.x);
+}));
+$('slider').addEventListener('input',update);
+$('copyC').addEventListener('click',()=>{navigator.clipboard.writeText(classicUrlClean($('slider').value));$('copyC').textContent='Copied!';setTimeout(()=>$('copyC').textContent='Copy',1200);});
+$('copyO').addEventListener('click',()=>{navigator.clipboard.writeText(openapiUrlClean($('slider').value));$('copyO').textContent='Copied!';setTimeout(()=>$('copyO').textContent='Copy',1200);});
+
+// ---- Classic-only capability matrix (live-probed where possible) ----
+const MATRIX=[
+  {name:'Named smart crop', classic:'Content-aware crops (e.g. :11square, :169banner) per the image profile',
+   openapi:'Returns 400 — not on this tier as configured', probe:O+'.jpg?width=600&smartcrop=Square'},
+  {name:'Image presets ($preset$)', classic:'Governed rendering recipes by name (e.g. $hero-desktop$)',
+   openapi:'No preset parameter in the OpenAPI dialect', probe:null},
+  {name:'Colour / treatment ops', classic:'op_grayscale, op_colorize, duotone, sharpen, blur…',
+   openapi:'No op_* vocabulary', probe:null},
+  {name:'Text & layer compositing', classic:'layer=, src=is{}, RTF text layers, drop shadows',
+   openapi:'Single-asset delivery only', probe:null},
+  {name:'Interactive viewers / 3D / Basic Templates', classic:'Spin sets, zoom, video viewers, PSD templates, GLB',
+   openapi:'Classic-only (viewers & templates)', probe:null},
+  {name:'Secure / signed delivery', classic:'Token / signed URLs via Scene7 security',
+   openapi:'Needs the secure-delivery feature + signing key (not enabled)', probe:null},
+];
+const matrix=$('matrix');
+MATRIX.forEach(m=>{
+  const t=document.createElement('div'); t.className='tile';
+  t.style.padding='16px';
+  t.innerHTML='<div class="t" style="font-size:15px;font-weight:800;margin-bottom:10px">'+m.name+'</div>'
+    +'<div class="s" style="line-height:1.6"><span class="badge red">Classic ✓</span> '+m.classic+'</div>'
+    +'<div class="s" style="line-height:1.6;margin-top:8px"><span class="badge" data-b style="background:var(--card-2);color:var(--muted)">OpenAPI</span> <span data-o>'+m.openapi+'</span></div>';
+  matrix.appendChild(t);
+  if(m.probe){
+    const badge=t.querySelector('[data-b]'), note=t.querySelector('[data-o]');
+    fetch(m.probe+'&'+cb(),{cache:'no-store'}).then(r=>{
+      if(r.status>=400){ badge.textContent='OpenAPI ✗ '+r.status; badge.className='badge red';
+        note.innerHTML='<span style="color:#ff7a6e">live: HTTP '+r.status+'</span> · '+m.openapi; }
+      else { badge.textContent='OpenAPI '+r.status; }
+    }).catch(()=>{});
+  }
+});
+
+setXf('resize');
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URL Composition Explorer — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · On-the-fly rendering</div>
+    <h1>The URL <em>is</em> the API</h1>
+    <p>One master asset, zero pre-rendered derivatives. Every transform below is just a query
+       parameter appended to the image-serving URL — rendered on demand at the edge and cached.
+       Change a control and watch the URL (and the pixels) update live.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+
+      <div class="card">
+        <h2>Size &amp; format</h2>
+
+        <div class="ctrl">
+          <label>Width <span class="val" id="widV">800</span></label>
+          <input type="range" id="wid" min="80" max="1400" step="10" value="800">
+        </div>
+
+        <div class="ctrl">
+          <label>Format</label>
+          <div class="seg" id="fmtSeg">
+            <button data-v="jpeg" class="active">JPEG</button>
+            <button data-v="webp">WebP</button>
+            <button data-v="avif">AVIF</button>
+            <button data-v="png">PNG</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>Quality <span class="val" id="qltV">80</span></label>
+          <input type="range" id="qlt" min="10" max="100" step="1" value="80">
+        </div>
+
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Disable Smart Imaging</label>
+          <div class="switch"><label style="margin:0;width:100%">
+            <span style="color:var(--muted);font-weight:600;font-size:13px">bfc=off — honor the chosen format</span>
+            <input type="checkbox" id="bfcOff" checked><span class="track"></span>
+          </label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Image operations</h2>
+
+        <div class="ctrl">
+          <label>Sharpen (Unsharp Mask)</label>
+          <div class="switch"><label style="margin:0;width:100%">
+            <span style="color:var(--muted);font-weight:600;font-size:13px">op_sharpen</span>
+            <input type="checkbox" id="sharpen"><span class="track"></span>
+          </label></div>
+        </div>
+
+        <div class="ctrl">
+          <label>Blur <span class="val" id="blurV">0</span></label>
+          <input type="range" id="blur" min="0" max="25" step="1" value="0">
+        </div>
+
+        <div class="ctrl">
+          <label>Brightness <span class="val" id="brV">0</span></label>
+          <input type="range" id="br" min="-60" max="60" step="2" value="0">
+        </div>
+
+        <div class="ctrl">
+          <label>Contrast <span class="val" id="ctV">0</span></label>
+          <input type="range" id="ct" min="-60" max="60" step="2" value="0">
+        </div>
+
+        <div class="ctrl">
+          <label>Effect</label>
+          <div class="chips" id="effChips">
+            <span class="chip active" data-eff="none">None</span>
+            <span class="chip" data-eff="gray">Grayscale</span>
+            <span class="chip" data-eff="invert">Invert</span>
+            <span class="chip" data-eff="sepia">Sepia</span>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>Rotate / flip</label>
+          <div class="chips" id="rotChips">
+            <span class="chip active" data-rot="0">0°</span>
+            <span class="chip" data-rot="90">90°</span>
+            <span class="chip" data-rot="180">180°</span>
+            <span class="chip" data-rot="270">270°</span>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label>Background (PNG/letterbox)</label>
+          <div class="chips" id="bgChips">
+            <span class="chip active" data-bg="">Default</span>
+            <span class="chip" data-bg="0xffffff">White</span>
+            <span class="chip" data-bg="0x2c2c2c">Slate</span>
+            <span class="chip" data-bg="0xeb1000">Adobe&nbsp;Red</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="copy-btn" style="width:100%;padding:11px;font-size:14px" id="reset">Reset all</button>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="img" alt="Dynamic Media render"></div>
+
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Delivered size</div><div class="m-val" id="mBytes">—</div></div>
+        <div class="metric"><div class="m-label">Pixel dimensions</div><div class="m-val" id="mDim">—</div></div>
+        <div class="metric"><div class="m-label">Format served</div><div class="m-val" id="mFmt">—</div></div>
+      </div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live image-serving URL</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">Every parameter is documented in the <b>Image Serving API reference</b>.
+         The CDN caches each unique URL — so the first request renders, the rest are free.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+let asset = DMAssets.current();
+let BASE = DMAssets.imageBase(asset);
+
+const state = {
+  wid:800, fmt:'jpeg', qlt:80, sharpen:false, blur:0, br:0, ct:0,
+  eff:'none', rot:0, flipH:false, flipV:false, bg:'', bfcOff:true
+};
+
+// build the modifier list -> [ [key,val], ... ]
+function params(){
+  const p = [];
+  p.push(['wid', state.wid]);
+  if (state.fmt !== 'jpeg') p.push(['fmt', state.fmt === 'png' ? 'png-alpha' : state.fmt]);
+  if (!(state.fmt === 'png')) p.push(['qlt', state.qlt]);
+  if (state.bfcOff) p.push(['bfc', 'off']);   // disable Smart Imaging so the chosen fmt is honored
+  if (state.sharpen) p.push(['op_sharpen', 1]);
+  if (state.blur > 0) p.push(['op_blur', state.blur]);
+  if (state.br !== 0) p.push(['op_brightness', state.br]);
+  if (state.ct !== 0) p.push(['op_contrast', state.ct]);
+  if (state.eff === 'gray')   p.push(['op_grayscale', 1]);
+  if (state.eff === 'invert') p.push(['op_invert', 1]);
+  if (state.eff === 'sepia') { p.push(['op_grayscale',1]); p.push(['op_colorize','0x704214']); }
+  if (state.rot !== 0)  p.push(['rotate', state.rot]);
+  if (state.flipH)      p.push(['flip', state.flipV ? 'xy' : 'x']);
+  else if (state.flipV) p.push(['flip', 'y']);
+  if (state.bg)         p.push(['bgc', state.bg.replace('0x','')]);
+  return p;
+}
+
+function buildUrl(){
+  const q = params().map(([k,v]) => k+'='+v).join('&');
+  return BASE + (q ? '?' + q : '');
+}
+
+function renderUrlHtml(){
+  // split the selected asset's base into protocol://host  +  /is/image/.../<asset>
+  const m = BASE.match(/^(https?:\/\/[^/]+)(\/.*)$/);
+  const host = m ? m[1].replace(/^https?:\/\//,'') : '';
+  const path = m ? m[2] : BASE;
+  const q = params();
+  let html = '<span class="host">https://'+host+'</span><span class="path">'+path+'</span>';
+  q.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">'+k+'</span>=<span class="v">'+v+'</span>';
+  });
+  return html;
+}
+
+function update(){
+  const url = buildUrl();
+  document.getElementById('url').innerHTML = renderUrlHtml();
+  const img = document.getElementById('img');
+  // measure bytes + read the ACTUAL format the CDN delivered (Smart Imaging may
+  // override the requested fmt based on the browser's Accept header).
+  let ctype = '';
+  fetch(url, {cache:'no-store'}).then(r=>{ ctype = r.headers.get('content-type')||''; return r.blob(); }).then(b=>{
+    img.src = URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent = (b.size/1024).toFixed(1)+' KB';
+    const served = (ctype.split('/')[1]||state.fmt).replace('jpeg','JPEG').toUpperCase();
+    const reqd = (state.fmt==='png'?'PNG':state.fmt.toUpperCase());
+    document.getElementById('mFmt').innerHTML = served + (served.toLowerCase()!==reqd.toLowerCase()
+      ? ' <span class="badge blue" style="font-size:10px">Smart Imaging</span>' : '');
+    img.onload = ()=> {
+      document.getElementById('mDim').textContent = img.naturalWidth+'×'+img.naturalHeight;
+    };
+  }).catch(()=>{ img.src = url; });
+}
+
+/* ---- wiring ---- */
+function bindRange(id, key, suffix=''){
+  const el = document.getElementById(id);
+  const out = document.getElementById(id+'V');
+  el.addEventListener('input', ()=>{
+    state[key] = +el.value;
+    if(out) out.textContent = el.value + suffix;
+    update();
+  });
+}
+bindRange('wid','wid'); bindRange('qlt','qlt'); bindRange('blur','blur');
+bindRange('br','br'); bindRange('ct','ct');
+
+document.querySelectorAll('#fmtSeg button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#fmtSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); state.fmt = b.dataset.v; update();
+}));
+document.getElementById('sharpen').addEventListener('change',e=>{ state.sharpen=e.target.checked; update(); });
+document.getElementById('bfcOff').addEventListener('change',e=>{ state.bfcOff=e.target.checked; update(); });
+
+document.querySelectorAll('#effChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#effChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.eff=c.dataset.eff; update();
+}));
+document.querySelectorAll('#rotChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  if(c.dataset.rot!==undefined){
+    document.querySelectorAll('#rotChips .chip[data-rot]').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active'); state.rot=+c.dataset.rot;
+  } else {
+    c.classList.toggle('active');
+    if(c.dataset.flip==='h') state.flipH=c.classList.contains('active');
+    if(c.dataset.flip==='v') state.flipV=c.classList.contains('active');
+  }
+  update();
+}));
+document.querySelectorAll('#bgChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#bgChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.bg=c.dataset.bg; update();
+}));
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+document.getElementById('reset').addEventListener('click',()=>location.reload());
+
+DMAssets.mountPicker(document.getElementById('picker'), a => {
+  asset = a;
+  BASE = DMAssets.imageBase(asset);
+  update();
+});
+
+update();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layering &amp; Compositing — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Server-side layering</div>
+    <h1>Composite a cutout over any scene</h1>
+    <p>A transparent foreground (a PNG that carries its own alpha mask) drops cleanly onto a background
+       photo — positioned, scaled, softened and shadowed entirely by URL parameters. No Photoshop, no
+       pre-rendered comp: Dynamic Media stacks the <code style="font-family:var(--mono)">layer</code>s on
+       demand and the CDN caches the result. Move the controls and watch the URL build itself.</p>
+  </div>
+
+  <div class="row">
+    <!-- CONTROLS -->
+    <div class="col-controls">
+      <div class="card"><div id="picker"></div></div>
+
+      <div class="card">
+        <h2>Foreground layer</h2>
+        <div class="ctrl">
+          <label>Cutout asset</label>
+          <div class="chips" id="fgChips">
+            <span class="chip active" data-fg="smartsecurity-devices">Smartphone · product</span>
+            <span class="chip" data-fg="wknd-logo-dk-1">WKND logo · dark</span>
+            <span class="chip" data-fg="wknd-logo-light-1">WKND logo · white</span>
+            <span class="chip" data-fg="surfing_2">Surf photo · opaque (no alpha)</span>
+          </div>
+        </div>
+        <p class="hint" id="fgHint" style="margin-top:10px">Transparent PNG — its own alpha mask makes
+          it composite cleanly over any background.</p>
+      </div>
+
+      <div class="card">
+        <h2>Placement</h2>
+
+        <div class="ctrl">
+          <label>Position X <span class="val" id="pxV">0.00</span></label>
+          <input type="range" id="px" min="-1" max="1" step="0.02" value="0">
+        </div>
+
+        <div class="ctrl">
+          <label>Position Y <span class="val" id="pyV">0.00</span></label>
+          <input type="range" id="py" min="-1" max="1" step="0.02" value="0">
+        </div>
+
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Size (width px) <span class="val" id="szV">420</span></label>
+          <input type="range" id="sz" min="80" max="700" step="10" value="420">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Treatment</h2>
+
+        <div class="ctrl">
+          <label>Opacity <span class="val" id="opV">100</span></label>
+          <input type="range" id="op" min="0" max="100" step="1" value="100">
+        </div>
+
+        <div class="ctrl">
+          <label>Edge spread <span class="val" id="grV">0</span></label>
+          <input type="range" id="gr" min="0" max="15" step="1" value="0">
+        </div>
+
+        <div class="ctrl">
+          <label>Drop shadow</label>
+          <div class="switch"><label style="margin:0;width:100%">
+            <span style="color:var(--muted);font-weight:600;font-size:13px">offset blurred copy</span>
+            <input type="checkbox" id="shadow"><span class="track"></span>
+          </label></div>
+        </div>
+
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Background blur <span class="val" id="bbV">0</span></label>
+          <input type="range" id="bb" min="0" max="25" step="1" value="0">
+        </div>
+      </div>
+
+      <button class="copy-btn" style="width:100%;padding:11px;font-size:14px" id="reset">Reset all</button>
+    </div>
+
+    <!-- STAGE -->
+    <div class="col-stage">
+      <div class="stage"><img id="img" alt="Composited render"></div>
+
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live image-serving URL (layered)</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint"><code style="font-family:var(--mono)">layer=N&amp;src=is{Company/asset}</code> stacks a
+        foreground on the base. <code style="font-family:var(--mono)">posN</code> places it (center-origin,
+        −1…+1), <code style="font-family:var(--mono)">op_grow</code> spreads the matte edge, and an offset
+        dark-blurred copy underneath fakes a <b>drop shadow</b>. <code style="font-family:var(--mono)">op_blur</code>
+        on the base blurs the <b>background</b> — all rendered server-side from one URL. A transparent PNG already
+        carries its alpha (its own mask); a flat/green background would instead be knocked out with
+        <code style="font-family:var(--mono)">mask=&hellip;&amp;maskUse=invert</code> or background removal.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/assets.js"></script>
+<script>
+const COMPANY = DMAssets.COMPANY; // 'RobertCo'
+
+// Foreground cutouts: native dims -> aspect (w/h), and whether they carry alpha.
+const FG = {
+  'smartsecurity-devices':{ label:'Smartphone · product', aspect:460/936, alpha:true },
+  'wknd-logo-dk-1':    { label:'WKND logo · dark',  aspect:301/128, alpha:true },
+  'wknd-logo-light-1': { label:'WKND logo · white', aspect:289/127, alpha:true },
+  'surfing_2':         { label:'Surf photo',        aspect:1920/1080, alpha:false }
+};
+
+let asset = DMAssets.current();
+let BASE = DMAssets.imageBase(asset);
+
+const state = { fg:'smartsecurity-devices', px:0.32, py:0, sz:240, op:100, gr:0, shadow:true, bb:6 };
+
+function fgHeight(){ return Math.round(state.sz / FG[state.fg].aspect); }
+function fgSrc(){ return 'is{' + COMPANY + '/' + state.fg + '}'; }
+
+// Build the modifier list -> [ [key,val], ... ]. src values are encoded for the wire.
+function params(){
+  const p = [];
+  const w = state.sz, h = fgHeight();
+  const enc = encodeURIComponent(fgSrc());
+  p.push(['wid', 900]);
+  if (state.bb > 0) p.push(['op_blur', state.bb]);            // blurs the BASE (layer 0)
+
+  if (state.shadow) {
+    // faux drop shadow: offset, darkened, blurred copy UNDER the foreground
+    p.push(['layer', 1]);
+    p.push(['src', enc]);
+    p.push(['size', w + ',' + h]);
+    p.push(['posN', (state.px + 0.015).toFixed(3) + ',' + (state.py + 0.02).toFixed(3)]);
+    p.push(['op_brightness', -100]);
+    p.push(['op_blur', 10]);
+    p.push(['opac', 55]);
+    // real foreground on top
+    p.push(['layer', 2]);
+    p.push(['src', enc]);
+    p.push(['size', w + ',' + h]);
+    p.push(['posN', state.px.toFixed(2) + ',' + state.py.toFixed(2)]);
+    if (state.op !== 100) p.push(['opac', state.op]);
+    if (state.gr > 0)     p.push(['op_grow', state.gr]);
+  } else {
+    p.push(['layer', 1]);
+    p.push(['src', enc]);
+    p.push(['size', w + ',' + h]);
+    p.push(['posN', state.px.toFixed(2) + ',' + state.py.toFixed(2)]);
+    if (state.op !== 100) p.push(['opac', state.op]);
+    if (state.gr > 0)     p.push(['op_grow', state.gr]);
+  }
+  return p;
+}
+
+function buildUrl(){
+  const q = params().map(([k,v]) => k + '=' + v).join('&');
+  return BASE + (q ? '?' + q : '');
+}
+
+function renderUrlHtml(){
+  const m = BASE.match(/^(https?:\/\/[^/]+)(\/.*)$/);
+  const host = m ? m[1] : '';
+  const path = m ? m[2] : BASE;
+  const q = params();
+  let html = '<span class="host">' + host + '</span><span class="path">' + path + '</span>';
+  q.forEach(([k,v],i)=>{
+    html += (i===0 ? '<span class="q">?</span>' : '<span class="amp">&amp;</span>');
+    html += '<span class="k">' + k + '</span>=<span class="v">' + String(v).replace(/</g,'&lt;') + '</span>';
+  });
+  return html;
+}
+
+let imgTimer = null;
+function update(){
+  document.getElementById('url').innerHTML = renderUrlHtml();
+  const url = buildUrl();
+  clearTimeout(imgTimer);
+  imgTimer = setTimeout(()=>{ document.getElementById('img').src = url; }, 120);
+}
+
+function refreshHint(){
+  const hint = document.getElementById('fgHint');
+  if (FG[state.fg].alpha) {
+    hint.innerHTML = 'Transparent PNG — its own alpha mask makes it composite cleanly over any background.';
+  } else {
+    hint.innerHTML = '<b style="color:#ff7a6e">Opaque photo (no alpha):</b> it lands as an ugly rectangle. '
+      + 'This is <i>why</i> compositing needs a transparent / masked foreground.';
+  }
+}
+
+/* ---- wiring ---- */
+function bindRange(id, key, fmt){
+  const el = document.getElementById(id);
+  const out = document.getElementById(id+'V');
+  el.addEventListener('input', ()=>{
+    state[key] = +el.value;
+    if(out) out.textContent = fmt ? fmt(+el.value) : el.value;
+    update();
+  });
+}
+bindRange('px','px', v=>v.toFixed(2));
+bindRange('py','py', v=>v.toFixed(2));
+bindRange('sz','sz');
+bindRange('op','op');
+bindRange('gr','gr');
+bindRange('bb','bb');
+
+document.querySelectorAll('#fgChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#fgChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.fg = c.dataset.fg; refreshHint(); update();
+}));
+
+document.getElementById('shadow').addEventListener('change',e=>{ state.shadow=e.target.checked; update(); });
+
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+document.getElementById('reset').addEventListener('click',()=>location.reload());
+
+DMAssets.mountPicker(document.getElementById('picker'), a => {
+  asset = a;
+  BASE = DMAssets.imageBase(asset);
+  update();
+});
+
+// sync all controls to the initial state (so defaults stay consistent)
+[['px','px',v=>v.toFixed(2)],['py','py',v=>v.toFixed(2)],['sz','sz'],['op','op'],['gr','gr'],['bb','bb']].forEach(([id,key,fmt])=>{
+  const el=document.getElementById(id), out=document.getElementById(id+'V');
+  if(el){ el.value=state[key]; if(out) out.textContent=fmt?fmt(state[key]):state[key]; }
+});
+document.getElementById('shadow').checked=state.shadow;
+document.querySelectorAll('#fgChips .chip').forEach(c=>c.classList.toggle('active', c.dataset.fg===state.fg));
+
+refreshHint();
+update();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>

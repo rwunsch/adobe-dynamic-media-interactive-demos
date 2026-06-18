@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variable Text Templating — Dynamic Media</title>
+<link rel="stylesheet" href="css/demo.css">
+<script src="js/assets.js"></script>
+</head>
+<body>
+<div class="demo">
+  <a class="back" href="index.html">&larr; All demos</a>
+  <div class="demo-head" style="margin-top:14px;">
+    <div class="eyebrow">Dynamic Media · Server-side text compositing</div>
+    <h1>Personalize the pixels, not the page</h1>
+    <p>This whole creative — the darkening scrim and every word — is <b>composited into the image by
+       the Dynamic Media server</b> and delivered as one flattened JPEG. No HTML overlay, no Photoshop,
+       no pre-baked variants. Edit the copy and the URL rebuilds the layers live; this is how you
+       generate thousands of personalized or localized creatives from a single master asset.</p>
+  </div>
+
+  <div class="row">
+    <div class="col-controls">
+      <div class="card">
+        <div id="picker"></div>
+      </div>
+      <div class="card">
+        <h2>Campaign copy</h2>
+        <div class="ctrl">
+          <label>Eyebrow</label>
+          <input type="text" id="eyebrow" value="NETCARE SPRING CAMPAIGN" maxlength="32">
+        </div>
+        <div class="ctrl">
+          <label>Headline</label>
+          <input type="text" id="headline" value="Care that moves with you" maxlength="40">
+        </div>
+        <div class="ctrl">
+          <label>Sub-line</label>
+          <input type="text" id="subline" value="Book your check-up today" maxlength="40">
+        </div>
+      </div>
+      <div class="card">
+        <h2>Style</h2>
+        <div class="ctrl">
+          <label>Headline colour</label>
+          <div class="chips" id="colorChips">
+            <span class="chip active" data-c="255,255,255">White</span>
+            <span class="chip" data-c="243,198,0">Yellow</span>
+            <span class="chip" data-c="235,16,0">Adobe&nbsp;Red</span>
+            <span class="chip" data-c="0,0,0">Black</span>
+          </div>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Scrim darkness <span class="val" id="scV">42%</span></label>
+          <input type="range" id="sc" min="0" max="75" step="2" value="42">
+        </div>
+      </div>
+
+      <details class="card" open>
+        <summary style="cursor:pointer;list-style:none;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Advanced &middot; font · size · placement</summary>
+        <div style="margin-top:18px">
+          <div class="ctrl">
+            <label>Font <span style="color:var(--muted-2);font-weight:400">(published to DM)</span></label>
+            <div class="chips" id="fontChips">
+              <span class="chip active" data-f="Adobe Clean">Adobe&nbsp;Clean</span>
+              <span class="chip" data-f="Adobe Clean Black">Clean&nbsp;Black</span>
+              <span class="chip" data-f="Adobe Clean Light">Clean&nbsp;Light</span>
+              <span class="chip" data-f="Adobe Clean Condensed">Clean&nbsp;Cond.</span>
+              <span class="chip" data-f="Open Sans">Open&nbsp;Sans</span>
+              <span class="chip" data-f="Helvetica">Helvetica</span>
+              <span class="chip" data-f="Arial">Arial</span>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>Headline size <span class="val" id="szV">160</span></label>
+            <input type="range" id="sz" min="80" max="360" step="5" value="160">
+          </div>
+          <div class="ctrl">
+            <label>Horizontal align</label>
+            <div class="seg" id="halignSeg">
+              <button data-v="left">Left</button>
+              <button data-v="center" class="active">Center</button>
+              <button data-v="right">Right</button>
+            </div>
+          </div>
+          <div class="ctrl" style="margin-bottom:0">
+            <label>Vertical position</label>
+            <div class="seg" id="valignSeg">
+              <button data-v="top">Top</button>
+              <button data-v="center" class="active">Center</button>
+              <button data-v="bottom">Bottom</button>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="col-stage">
+      <div class="stage"><img id="out" alt="composited creative"></div>
+      <div class="metrics">
+        <div class="metric"><div class="m-label">Rendering</div><div class="m-val good" style="font-size:18px">Server-side</div></div>
+        <div class="metric"><div class="m-label">Layers</div><div class="m-val" style="font-size:18px">Scrim + RTF</div></div>
+        <div class="metric"><div class="m-label">Delivered size</div><div class="m-val" id="mBytes" style="font-size:18px">—</div></div>
+      </div>
+      <div class="urlbar">
+        <div class="label-row">
+          <span>Live image-serving URL (two layers)</span>
+          <button class="copy-btn" id="copy">Copy URL</button>
+        </div>
+        <div class="url" id="url"></div>
+      </div>
+      <p class="hint">Layer&nbsp;1 is a black fill at
+        <code style="font-family:var(--mono)">opac=</code> (the scrim); layer&nbsp;2 is an
+        <code style="font-family:var(--mono)">RTF</code> text document on
+        <code style="font-family:var(--mono)">text=</code>. Font, weight, tracking, colour and size all
+        live in the RTF — the CDN rasterizes and flattens both onto the master and caches the result.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const W=700;
+const EYEBROW_RGB='235,16,0', SUB_RGB='255,255,255';
+
+const state={ eyebrow:'NETCARE SPRING CAMPAIGN', headline:'Care that moves with you',
+              subline:'Book your check-up today', color:'255,255,255', font:'Adobe Clean',
+              fs:160, scrim:42, halign:'center', valign:'center' };
+
+function asset(){ return DMAssets.current(); }
+function BASE(){ return DMAssets.imageBase(asset()); }
+
+function rtfEscape(s){ return (s||'').replace(/[\\{}]/g,'\\$&'); }
+// balance a long headline onto two centered lines
+function wrapHeadline(s){
+  const w=(s||'').trim().split(/\s+/);
+  if(w.length<3) return rtfEscape(s);
+  let best=1,bd=1e9,tot=s.length;
+  for(let i=1;i<w.length;i++){const l1=w.slice(0,i).join(' ').length;const d=Math.abs(l1-(tot-l1));if(d<bd){bd=d;best=i;}}
+  return rtfEscape(w.slice(0,best).join(' '))+'\\par '+rtfEscape(w.slice(best).join(' '));
+}
+function buildRtf(){
+  const hc=state.color.split(','), ec=EYEBROW_RGB.split(','), sc=SUB_RGB.split(',');
+  // font sizes proportional to the asset's native width so they look consistent across backgrounds
+  const hpt=Math.round(asset().w*state.fs/3000), hfs=hpt*2, efs=Math.round(hpt*0.46)*2, sfs=Math.round(hpt*0.62)*2;
+  const colors=`{\\colortbl;\\red${ec[0]}\\green${ec[1]}\\blue${ec[2]};\\red${hc[0]}\\green${hc[1]}\\blue${hc[2]};\\red${sc[0]}\\green${sc[1]}\\blue${sc[2]};}`;
+  const align = state.halign==='left'?'\\ql':state.halign==='right'?'\\qr':'\\qc';
+  // The text layer is a full-canvas box (set in buildUrl), so text is TOP-anchored.
+  // Push it down with leading blank lines whose height scales to the asset (≈ canvasH/24 each).
+  const padFs=Math.max(40,Math.round(asset().h/14.4));
+  const leadLines = state.valign==='center' ? 9 : state.valign==='bottom' ? 17 : 0;
+  let body = leadLines ? `\\fs${padFs} ${'\\par'.repeat(leadLines)}` : '';
+  if(state.eyebrow) body+=`\\b\\expndtw160\\fs${efs}\\cf1 ${rtfEscape(state.eyebrow)}\\par\\par\\expndtw0`;
+  body+=`\\b\\fs${hfs}\\cf2 ${wrapHeadline(state.headline||' ')}`;
+  if(state.subline) body+=`\\par\\par\\b0\\fs${sfs}\\cf3 ${rtfEscape(state.subline)}`;
+  const fontName=rtfEscape(state.font||'Arial');
+  return `{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0\\fswiss ${fontName};}}${colors}${align}\\f0 ${body}}`;
+}
+function buildUrl(){
+  const a=asset();
+  const scrim = state.scrim>0 ? `&layer=1&color=0,0,0&size=${a.w},${a.h}&opac=${state.scrim}` : '';
+  const tl = `&layer=${state.scrim>0?2:1}&size=${a.w},${a.h}&pos=0,0&text=${encodeURIComponent(buildRtf())}`;
+  return `${BASE()}?wid=${W}${scrim}${tl}`;
+}
+function renderUrlHtml(){
+  const head=(state.headline||'').replace(/</g,'&lt;');
+  const base=BASE();
+  const m=base.match(/^(https?:\/\/[^/]+)(\/.*)$/);
+  const host=m?m[1]:base, dispPath=(m?m[2]:'').replace(/</g,'&lt;');
+  let h='<span class="host">'+host+'</span><span class="path">'+dispPath+'</span>'
+    +'<span class="q">?</span><span class="k">wid</span>=<span class="v">'+W+'</span>';
+  if(state.scrim>0) h+='<span class="amp">&amp;</span><span class="k">layer</span>=<span class="v">1</span>'
+    +'<span class="amp">&amp;</span><span class="k">color</span>=<span class="v">0,0,0</span>'
+    +'<span class="amp">&amp;</span><span class="k">opac</span>=<span class="v">'+state.scrim+'</span>';
+  h+='<span class="amp">&amp;</span><span class="k">layer</span>=<span class="v">'+(state.scrim>0?2:1)+'</span>'
+    +'<span class="amp">&amp;</span><span class="k">text</span>=<span class="v">{\\rtf1…\\cf2 '+head+'…}</span> '
+    +'<span class="host">(RTF, URL-encoded)</span>';
+  return h;
+}
+
+function update(){
+  document.getElementById('url').innerHTML=renderUrlHtml();
+  const out=document.getElementById('out');
+  fetch(buildUrl(),{cache:'no-store'}).then(r=>r.blob()).then(b=>{
+    out.src=URL.createObjectURL(b);
+    document.getElementById('mBytes').textContent=(b.size/1024).toFixed(0)+' KB';
+  }).catch(()=>{ out.src=buildUrl(); });
+}
+
+// shared background picker
+DMAssets.mountPicker(document.getElementById('picker'), () => update());
+
+['eyebrow','headline','subline'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',e=>{ state[id]=e.target.value; update(); });
+});
+document.getElementById('sz').addEventListener('input',e=>{ state.fs=+e.target.value; document.getElementById('szV').textContent=e.target.value; update(); });
+document.getElementById('sc').addEventListener('input',e=>{ state.scrim=+e.target.value; document.getElementById('scV').textContent=e.target.value+'%'; update(); });
+document.querySelectorAll('#colorChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#colorChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.color=c.dataset.c; update();
+}));
+document.querySelectorAll('#fontChips .chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('#fontChips .chip').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active'); state.font=c.dataset.f; update();
+}));
+function bindSeg(id,key){ document.querySelectorAll('#'+id+' button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#'+id+' button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); state[key]=b.dataset.v; update();
+}));}
+bindSeg('halignSeg','halign'); bindSeg('valignSeg','valign');
+document.getElementById('copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(buildUrl());
+  const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
+});
+
+update();
+</script>
+  <script src="js/editable-values.js"></script>
+</body>
+</html>
