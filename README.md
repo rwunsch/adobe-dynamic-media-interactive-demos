@@ -83,11 +83,14 @@ no-redirect static server that also resolves extensionless URLs to `.html`.
 - **Classic Dynamic Media demos** render out of the box against a **public Scene7
   sample tenant** (`RobertCo` on `s7g10.scene7.com`). These are public CDN delivery
   URLs, so the images load with no setup.
-- **DMoAPI demos** point at a **placeholder delivery host**
-  (`delivery-pXXXXX-eYYYYYY.adobeaemcloud.com`). DMoAPI delivery is
-  program/environment-specific, so to make these render live you point them at your
-  own tenant — either edit the host in the demo, or use the picker / config fields
-  inside each DMoAPI demo.
+- **DMoAPI demos** also render live against a **public DMoAPI delivery tenant**.
+  DMoAPI delivery URLs are public for *approved* assets (the same governance model:
+  only approved + published assets are served), so these load with no setup too.
+- **Exception — the Asset Selector (demo 24)** needs an Adobe **IMS sign-in** (it
+  embeds Adobe's authenticated micro-frontend), so it can't render anonymously; it
+  shows a sign-in prompt and a paste-a-token fallback. The *author* host it
+  references is left as a placeholder (`author-pXXXXX-eYYYYYY`) since that tier is
+  login-gated, not public.
 
 ### Point a demo at your own assets
 Most demos include an **image picker** (top of the page) where you can paste a full
