@@ -7,6 +7,8 @@ Every demo is a single self-contained page with no build step: each one renders
 
 Each page is designed to be shown on its own or dropped into a slide deck via an `<iframe>`.
 
+**▶ Live site:** https://rwunsch.github.io/adobe-dynamic-media-interactive-demos/
+
 ![Demo gallery](screenshots/00-gallery.png)
 
 ## What's inside
