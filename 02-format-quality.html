@@ -71,6 +71,14 @@
         </div>
       </div>
 
+      <!-- Measurement probe. The two <img> above load the real DM URLs so you can inspect them in
+           DevTools; these hidden copies hold the fetched bytes, which is the only way to read the
+           delivered Content-Type and byte count (Scene7 sends no Timing-Allow-Origin, so the
+           Resource Timing API reports 0 for cross-origin images). -->
+      <div id="probe" hidden aria-hidden="true">
+        <img id="probeOff" alt=""><img id="probeOn" alt="">
+      </div>
+
       <div class="urlbar">
         <div class="label-row"><span>The single authored URL (Smart Imaging on)</span>
           <button class="copy-btn" id="copy">Copy URL</button></div>
@@ -79,6 +87,10 @@
       <p class="hint">Quality still applies in both modes — Smart Imaging additionally swaps the
         <b>format</b> to AVIF/WebP per the browser's <code style="font-family:var(--mono)">Accept</code> header,
         which is where most of the saving comes from. Every unique URL is rendered once, then edge-cached.</p>
+      <p class="hint">Both tiles above are plain <code style="font-family:var(--mono)">&lt;img src="…"&gt;</code>
+        elements pointing at the <b>real delivery URLs</b> — open DevTools &rarr; Network, or right-click &rarr;
+        "Open image in new tab", to inspect the actual request and its response headers. The KB and format
+        readouts come from a parallel measuring request to the same URL, kept in a hidden probe element.</p>
     </div>
   </div>
 </div>
@@ -88,11 +100,17 @@
 let asset = DMAssets.current();
 const state = { q:80, w:900 };
 
+/* The real, clean delivery URL — no cache-buster, so it's the exact URL you'd author, and the one
+   you see in the Network panel. Both the visible <img> and the measuring fetch request this. */
 function urlFor(off){
-  return DMAssets.imageBase(asset) + `?wid=${state.w}&qlt=${state.q}` + (off?'&bfc=off':'&bfc=on')
-    + `&t=${Math.floor(performance.now())}`;   // cache-bust so each change is a real fetch
+  return DMAssets.imageBase(asset) + `?wid=${state.w}&qlt=${state.q}` + (off?'&bfc=off':'&bfc=on');
 }
 function fmtName(ct){ return ((ct||'').split('/')[1]||'?').replace('jpeg','JPEG').toUpperCase(); }
+
+// An <img> sends this Accept header; fetch() defaults to a wildcard one instead. Smart Imaging
+// negotiates on Accept, so without this the probe under-reports — it measures WebP where the
+// real <img> beside it is served AVIF.
+const IMG_ACCEPT = 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8';
 
 function urlHtml(){
   const base = DMAssets.imageBase(asset);
@@ -103,23 +121,31 @@ function urlHtml(){
 }
 
 let token = 0;
+const objectUrls = {};                            // last blob URL per probe, so we can revoke it
+
 function render(){
   document.getElementById('url').innerHTML = urlHtml();
   const my = ++token;
-  const grab = (off, imgId, fmtId, sizeId) => {
+  const grab = (off, imgId, probeId, fmtId, sizeId) => {
     const u = urlFor(off);
-    return fetch(u, {cache:'no-store'}).then(r => { const ct = r.headers.get('content-type'); return r.blob().then(b => ({ct,b})); })
+    document.getElementById(imgId).src = u;       // visible image = the real DM URL, verbatim
+    // Parallel measuring request to that same URL: the only way to read the delivered
+    // Content-Type and byte count cross-origin. Its bytes go into the hidden probe.
+    return fetch(u, {cache:'no-store', headers:{'Accept': IMG_ACCEPT}})
+      .then(r => { const ct = r.headers.get('content-type'); return r.blob().then(b => ({ct,b})); })
       .then(({ct,b}) => {
-        if(my !== token) return null;            // ignore stale responses
-        document.getElementById(imgId).src = URL.createObjectURL(b);
+        if(my !== token) return null;             // ignore stale responses
+        if(objectUrls[probeId]) URL.revokeObjectURL(objectUrls[probeId]);
+        objectUrls[probeId] = URL.createObjectURL(b);
+        document.getElementById(probeId).src = objectUrls[probeId];
         document.getElementById(fmtId).textContent = fmtName(ct);
         document.getElementById(sizeId).textContent = (b.size/1024).toFixed(0) + ' KB';
         return b.size;
       });
   };
   Promise.all([
-    grab(true,  'imgOff','fmtOff','sizeOff'),
-    grab(false, 'imgOn', 'fmtOn', 'sizeOn')
+    grab(true,  'imgOff','probeOff','fmtOff','sizeOff'),
+    grab(false, 'imgOn', 'probeOn', 'fmtOn', 'sizeOn')
   ]).then(([off,on]) => {
     if(my !== token || !off || !on) return;
     const save = Math.round((1 - on/off) * 100);
