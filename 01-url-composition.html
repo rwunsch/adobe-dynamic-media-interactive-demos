@@ -48,7 +48,7 @@
         <div class="ctrl" style="margin-bottom:0">
           <label>Disable Smart Imaging</label>
           <div class="switch"><label style="margin:0;width:100%">
-            <span style="color:var(--muted);font-weight:600;font-size:13px">bfc=off — honor the chosen format</span>
+            <span style="color:var(--muted);font-weight:600;font-size:13px">on: <code style="font-family:var(--mono)">bfc=off</code> — honor the chosen format · off: <code style="font-family:var(--mono)">bfc=on</code> — Smart Imaging negotiates</span>
             <input type="checkbox" id="bfcOff" checked><span class="track"></span>
           </label></div>
         </div>
@@ -153,7 +153,8 @@ function params(){
   p.push(['wid', state.wid]);
   if (state.fmt !== 'jpeg') p.push(['fmt', state.fmt === 'png' ? 'png-alpha' : state.fmt]);
   if (!(state.fmt === 'png')) p.push(['qlt', state.qlt]);
-  if (state.bfcOff) p.push(['bfc', 'off']);   // disable Smart Imaging so the chosen fmt is honored
+  // state it explicitly either way — on a custom domain Smart Imaging may not be on by default
+  p.push(['bfc', state.bfcOff ? 'off' : 'on']);   // off = honor the chosen fmt; on = let Smart Imaging negotiate
   if (state.sharpen) p.push(['op_sharpen', 1]);
   if (state.blur > 0) p.push(['op_blur', state.blur]);
   if (state.br !== 0) p.push(['op_brightness', state.br]);

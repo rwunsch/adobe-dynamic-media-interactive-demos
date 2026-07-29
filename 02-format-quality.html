@@ -15,8 +15,8 @@
     <p>Smart Imaging converts each delivery to the best modern format the visitor's browser accepts
        (AVIF / WebP) at an optimized quality — no URL change, no code. Below, the <b>same</b> request is
        served with Smart Imaging <b>off</b> (<code style="font-family:var(--mono)">bfc=off</code> → baseline
-       JPEG) and <b>on</b> (default). Both are fetched live by <em>your</em> browser. Drag quality and watch
-       the bytes on both sides move.</p>
+       JPEG) and <b>on</b> (<code style="font-family:var(--mono)">bfc=on</code>). Both are fetched live by
+       <em>your</em> browser. Drag quality and watch the bytes on both sides move.</p>
   </div>
 
   <div class="row">
@@ -36,9 +36,14 @@
       </div>
       <div class="card">
         <h2>The toggle</h2>
-        <p class="hint" style="margin-top:0"><code style="font-family:var(--mono)">bfc=off</code> = "browser
-           format conversion off" — the one switch that disables Smart Imaging per request. In production
-           you never use it; it's here to reveal what Smart Imaging is doing for you on every other URL.</p>
+        <p class="hint" style="margin-top:0"><code style="font-family:var(--mono)">bfc</code> = "browser
+           format conversion" — the one switch that turns Smart Imaging on or off per request.
+           <code style="font-family:var(--mono)">bfc=off</code> forces baseline JPEG; it's here to reveal what
+           Smart Imaging is doing for you on every other URL.</p>
+        <p class="hint"><code style="font-family:var(--mono)">bfc=on</code> is stated explicitly on the right-hand
+           URL. On most accounts Smart Imaging is already the default, but on a custom domain / CDN mapping where
+           it hasn't been enabled, the explicit <code style="font-family:var(--mono)">bfc=on</code> guarantees the
+           optimized delivery.</p>
       </div>
     </div>
 
@@ -60,7 +65,7 @@
           </div>
           <div class="cap">
             <div class="t">Smart Imaging ON <span class="badge green" id="fmtOn">—</span></div>
-            <div class="s">default · what your browser gets</div>
+            <div class="s">optimized · <code style="font-family:var(--mono)">bfc=on</code></div>
             <div class="m-val good" id="sizeOn" style="font-size:22px;margin-top:6px">—</div>
           </div>
         </div>
@@ -84,7 +89,7 @@ let asset = DMAssets.current();
 const state = { q:80, w:900 };
 
 function urlFor(off){
-  return DMAssets.imageBase(asset) + `?wid=${state.w}&qlt=${state.q}` + (off?'&bfc=off':'')
+  return DMAssets.imageBase(asset) + `?wid=${state.w}&qlt=${state.q}` + (off?'&bfc=off':'&bfc=on')
     + `&t=${Math.floor(performance.now())}`;   // cache-bust so each change is a real fetch
 }
 function fmtName(ct){ return ((ct||'').split('/')[1]||'?').replace('jpeg','JPEG').toUpperCase(); }
@@ -93,7 +98,8 @@ function urlHtml(){
   const base = DMAssets.imageBase(asset);
   return base.replace(/^https:\/\/([^/]+)/, '<span class="host">https://$1</span>').replace(/(\/is\/image\/.*)$/, '<span class="path">$1</span>')
     + '<span class="q">?</span><span class="k">wid</span>=<span class="v">'+state.w+'</span>'
-    + '<span class="amp">&amp;</span><span class="k">qlt</span>=<span class="v">'+state.q+'</span>';
+    + '<span class="amp">&amp;</span><span class="k">qlt</span>=<span class="v">'+state.q+'</span>'
+    + '<span class="amp">&amp;</span><span class="k">bfc</span>=<span class="v">on</span>';
 }
 
 let token = 0;
@@ -127,7 +133,7 @@ DMAssets.mountPicker(document.getElementById('picker'), a => { asset = a; render
 document.getElementById('q').addEventListener('input', e => { state.q=+e.target.value; document.getElementById('qV').textContent=e.target.value; render(); });
 document.getElementById('w').addEventListener('input', e => { state.w=+e.target.value; document.getElementById('wV').textContent=e.target.value; render(); });
 document.getElementById('copy').addEventListener('click', () => {
-  navigator.clipboard.writeText(DMAssets.imageBase(asset)+`?wid=${state.w}&qlt=${state.q}`);
+  navigator.clipboard.writeText(DMAssets.imageBase(asset)+`?wid=${state.w}&qlt=${state.q}&bfc=on`);
   const b=document.getElementById('copy'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy URL',1200);
 });
 
